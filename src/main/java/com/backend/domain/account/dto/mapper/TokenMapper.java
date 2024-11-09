@@ -1,9 +1,9 @@
-package com.backend.domain.dto.mapper;
+package com.backend.domain.account.dto.mapper;
 
 import org.springframework.stereotype.Component;
 
-import com.backend.domain.dto.response.TokenRes;
-import com.backend.domain.entity.Token;
+import com.backend.domain.account.dto.response.TokenRes;
+import com.backend.domain.account.entity.Token;
 
 @Component
 public class TokenMapper {

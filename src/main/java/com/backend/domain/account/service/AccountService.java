@@ -1,4 +1,4 @@
-package com.backend.domain.service;
+package com.backend.domain.account.service;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -10,15 +10,20 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import com.backend.domain.dto.mapper.TokenMapper;
-import com.backend.domain.dto.response.TokenRes;
-import com.backend.domain.entity.Token;
-import com.backend.domain.repository.TokenRepository;
+import com.backend.domain.account.dto.mapper.TokenMapper;
+import com.backend.domain.account.dto.response.BalanceRes;
+import com.backend.domain.account.dto.response.TokenRes;
+import com.backend.domain.account.entity.Token;
+import com.backend.domain.account.repository.TokenRepository;
+import com.backend.domain.auto_trading.dto.response.StockRes;
+import com.backend.global.util.ApiUtils;
+import com.backend.global.util.TokenUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
@@ -29,15 +34,23 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class ConnectionService {
+public class AccountService {
 
-	@Value("${api.app-key}")
+	@Value("${ks.app-key}")
 	private String APP_KEY;
-	@Value("${api.app-secret}")
+	@Value("${ks.app-secret}")
 	private String APP_SECRET;
+	@Value("${ks.account-number}")
+	private String accountNumber;
+	@Value("${ks.account-product-code}")
+	private String accountProductCode;
+
 	private final ObjectMapper objectMapper;
 	private final TokenMapper tokenMapper;
 	private final TokenRepository tokenRepository;
+
+	private final TokenUtils tokenUtils;
+	private final ApiUtils apiUtils;
 
 	private void getAccessToken() {
 		RestTemplate restTemplate = new RestTemplate();
@@ -50,6 +63,7 @@ public class ConnectionService {
 		requestMap.put("appkey", APP_KEY);
 		requestMap.put("appsecret", APP_SECRET);
 
+		// 수정 가능
 		String jsonBody;
 		try {
 			jsonBody = objectMapper.writeValueAsString(requestMap);
@@ -61,20 +75,10 @@ public class ConnectionService {
 		HttpEntity<String> requestMessage = new HttpEntity<>(jsonBody, httpHeaders);
 
 		String URL = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
-		HttpEntity<String> response = restTemplate.exchange(URL, HttpMethod.POST, requestMessage, String.class);
+		ResponseEntity<TokenRes> response = restTemplate.exchange(URL, HttpMethod.POST, requestMessage, TokenRes.class);
 		log.info("Response body: {}", response.getBody());
 
-		objectMapper.configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
-
-		TokenRes tokenRes;
-		try {
-			tokenRes = objectMapper.readValue(response.getBody(), TokenRes.class);
-		} catch (JsonProcessingException e) {
-			// TODO Exception
-			throw new RuntimeException(e);
-		}
-
-		Token token = tokenMapper.toToken(tokenRes);
+		Token token = tokenMapper.toToken(response.getBody());
 
 		tokenRepository.save(token);
 
@@ -103,16 +107,25 @@ public class ConnectionService {
 		});
 	}
 
-	public void getAccount() {
+	public ResponseEntity<BalanceRes> getAccount() {
 
-		HttpHeaders httpHeaders = new HttpHeaders();
-		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
-		// httpHeaders.set("authorization", "Bearer " + MyToken);
-		httpHeaders.set("appkey", APP_KEY);
-		httpHeaders.set("appsecrete", APP_SECRET);
-		httpHeaders.set("tr_id", "TTTS3012R");
+		HttpHeaders httpheaders = tokenUtils.createAuthorizationBody("TTTS3012R");
 
-		Map<String, String> requestMap = new HashMap<>();
+		String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/inquire-balance";
 
+		Map<String, String> parameters = new HashMap<>();
+		parameters.put("CANO", accountNumber);
+		parameters.put("ACNT_PRDT_CD", accountProductCode);
+		parameters.put("OVRS_EXCG_CD", "NASD");
+		parameters.put("TR_CRCY_CD", "USD");
+		parameters.put("CTX_AREA_FK200", "");
+		parameters.put("CTX_AREA_NK200", "");
+
+		ResponseEntity<BalanceRes> response = apiUtils.getRequest(httpheaders, URL, parameters, BalanceRes.class);
+
+		log.info("Response body: {}", response.getBody());
+
+		return response;
 	}
+
 }

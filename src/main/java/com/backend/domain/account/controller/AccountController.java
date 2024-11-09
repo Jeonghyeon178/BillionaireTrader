@@ -1,19 +1,19 @@
-package com.backend.domain.controller;
+package com.backend.domain.account.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.backend.domain.service.ConnectionService;
+import com.backend.domain.account.service.AccountService;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
-public class ConnectionController {
-	private final ConnectionService connectionService;
+public class AccountController {
+	private final AccountService connectionService;
 
-	@GetMapping()
-	public void requestAccessToken(){
+	@GetMapping("/token")
+	public void requestAccessToken() {
 		connectionService.checkValidToken();
 	}
 
@@ -21,4 +21,5 @@ public class ConnectionController {
 	public void requestAccount() {
 		connectionService.getAccount();
 	}
+
 }
