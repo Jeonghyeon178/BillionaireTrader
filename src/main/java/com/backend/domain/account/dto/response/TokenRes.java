@@ -1,4 +1,4 @@
-package com.backend.domain.dto.response;
+package com.backend.domain.account.dto.response;
 
 import java.time.LocalDateTime;
 
