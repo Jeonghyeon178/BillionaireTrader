@@ -16,11 +16,12 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Nasdaq {
+public class Stock {
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
+	private String ticker;
 	private LocalDate date;
 	private Double price;
-	private Double rate;
 }

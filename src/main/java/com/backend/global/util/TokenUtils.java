@@ -1,6 +1,5 @@
 package com.backend.global.util;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -9,7 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
 import com.backend.domain.account.entity.Token;
-import com.backend.domain.account.repository.TokenRepository;
+import com.backend.domain.token.repository.TokenRepository;
 
 import lombok.RequiredArgsConstructor;
 

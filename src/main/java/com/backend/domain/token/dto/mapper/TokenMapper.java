@@ -1,4 +1,4 @@
-package com.backend.domain.account.dto.mapper;
+package com.backend.domain.token.dto.mapper;
 
 import org.springframework.stereotype.Component;
 

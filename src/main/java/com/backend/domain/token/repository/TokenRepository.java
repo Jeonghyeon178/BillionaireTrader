@@ -1,4 +1,4 @@
-package com.backend.domain.account.repository;
+package com.backend.domain.token.repository;
 
 import java.util.Optional;
 

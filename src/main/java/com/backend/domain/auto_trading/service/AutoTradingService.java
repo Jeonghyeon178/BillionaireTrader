@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -20,21 +21,25 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import com.backend.domain.account.dto.response.BalanceOutPut1Res;
-import com.backend.domain.account.dto.response.BalanceRes;
+import com.backend.domain.account.dto.common.AccountBalanceDto;
+import com.backend.domain.account.dto.response.CashBalanceRes;
+import com.backend.domain.account.dto.response.StockBalanceOutPut1Res;
+import com.backend.domain.account.dto.response.StockBalanceRes;
 import com.backend.domain.account.service.AccountService;
-import com.backend.domain.auto_trading.dto.common.NasdaqTriggerInfo;
 import com.backend.domain.auto_trading.dto.common.StockInfo;
-import com.backend.domain.auto_trading.dto.response.NasdaqInfoRes;
+import com.backend.domain.auto_trading.dto.response.IndicesInfoRes;
+import com.backend.domain.auto_trading.dto.response.IndicesRes;
+import com.backend.domain.auto_trading.dto.response.NasdaqDataRes;
+import com.backend.domain.auto_trading.dto.response.NasdaqOutput2Res;
 import com.backend.domain.auto_trading.dto.response.StockCurrentRes;
 import com.backend.domain.auto_trading.dto.response.StockInfoOutputRes;
 import com.backend.domain.auto_trading.dto.response.StockInfoRes;
 import com.backend.domain.auto_trading.dto.response.StockOutPut2Res;
 import com.backend.domain.auto_trading.dto.response.StockRes;
 import com.backend.domain.auto_trading.entity.Nasdaq;
-import com.backend.domain.auto_trading.entity.PeekStockData;
+import com.backend.domain.auto_trading.entity.Stock;
 import com.backend.domain.auto_trading.repository.NasdaqRepository;
-import com.backend.domain.auto_trading.repository.PeekStockDataRepository;
+import com.backend.domain.auto_trading.repository.StockRepository;
 import com.backend.global.util.ApiUtils;
 import com.backend.global.util.TokenUtils;
 
@@ -47,7 +52,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Transactional
 public class AutoTradingService {
-	private final PeekStockDataRepository peekStockDataRepository;
+	private static String largestCompany;
 	private final NasdaqRepository nasdaqRepository;
 
 	private final TokenUtils tokenUtils;
@@ -59,82 +64,54 @@ public class AutoTradingService {
 	private String accountNumber;
 	@Value("${ks.account-product-code}")
 	private String accountProductCode;
+	private final StockRepository stockRepository;
 
 	// 17시 이후 사용 가능. (18시)
 	public void searchStocks() throws IOException {
 
-		HttpHeaders httpheaders = tokenUtils.createAuthorizationBody("HHDFS76410000");
-
-		String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-search";
-		// 스크래핑 통해 가져온 데이터와 괴리가 존재할 수 있음..
-		// 넉넉잡아서 min값을 설정한 뒤 불러온 데이터 기준으로 필터링?
-		Long minMarketCap = Math.round(getMarketCap() * 0.9);
+		// 시가총액 범위 결정: TradingView 스크래핑 통해 얻은 시총의 90% ~ 10배까지
+		Long minMarketCap = Math.round(getLargestMarketCap() * 0.9);
 		Long maxMarketCap = minMarketCap * 10;
 
-		Map<String, String> parameters = new HashMap<>();
-		parameters.put("AUTH", "");
-		parameters.put("EXCD", "NAS");
-		parameters.put("CO_YN_VALX", "1");
-		parameters.put("CO_ST_VALX", String.valueOf(minMarketCap));
-		parameters.put("CO_EN_VALX", String.valueOf(maxMarketCap));
+		Map<String, String> params = new HashMap<>();
+		params.put("AUTH", "");
+		params.put("EXCD", "NAS");
+		params.put("CO_YN_VALX", "1");
+		params.put("CO_ST_VALX", String.valueOf(minMarketCap));
+		params.put("CO_EN_VALX", String.valueOf(maxMarketCap));
 
-		ResponseEntity<StockRes> response = apiUtils.getRequest(httpheaders, URL, parameters, StockRes.class);
-
-		log.info("Response body: {}", response.getBody());
+		// 해외주식조건검색 API 호출
+		ResponseEntity<StockRes> response = apiUtils.getRequest(tokenUtils.createAuthorizationBody("HHDFS76410000"),
+			"https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-search", params, StockRes.class);
 
 		StockRes stockRes = response.getBody();
+
+		log.info("최상위 시가총액 기준 90% 이상 주식 조회 결과: {}", stockRes);
+
+		// 결과가 있다면, 시총 상위 종목만 필터링
 		if (stockRes != null && !stockRes.output2().isEmpty()) {
 			List<StockOutPut2Res> stockList = stockRes.output2();
-			Long totalMarketCap = 0L;
-			Long largestMarketCap = 0L;
+			List<StockOutPut2Res> filteredStockList = filterStocksByMarketCap(stockList);
 
-			// 1. 전체 시가총액 합산 (stockList 다시 필터링)
-			List<StockOutPut2Res> filteredStockList = new ArrayList<>();
-			for (StockOutPut2Res stock : stockList) {
-				Long marketCap = Long.valueOf(stock.valx());
+			// 보유 잔고(주식+현금) 조회 → (계좌 서비스에서 AccountBalanceDto 반환)
+			AccountBalanceDto accountBalance = accountService.getAccountBalance();
+			StockBalanceRes stockBalanceRes = accountBalance.stockBalanceRes();
+			CashBalanceRes cashBalanceRes = accountBalance.cashBalanceRes();
 
-				// 첫 번째 항목에서 가장 큰 시가총액을 설정
-				if (largestMarketCap == 0L) {
-					largestMarketCap = marketCap;
-				}
+			// 주식 총평가액 + 외화예수금
+			double amount = Double.parseDouble(stockBalanceRes.output2().totEvluPflsAmt() + cashBalanceRes.output().get(0).frcrDnclAmt1());
+			log.info("Current total amount (stock + cash): {}", amount);
 
-				// 시가총액이 largestMarketCap의 90% 이상인 경우 합산 및 필터링 리스트 추가
-				if (marketCap >= largestMarketCap * 0.9) {
-					totalMarketCap += marketCap;
-					filteredStockList.add(stock);
-				} else {
-					break;
-				}
-			}
-			// 만약 기존 주식을 갖고 있다면?
-			// TODO 맵으로 담는 방법을 고려. 시간복잡도 우려.
-			ResponseEntity<BalanceRes> balanceResResponseEntity = accountService.getAccount();
-			Double amount = Double.valueOf(balanceResResponseEntity.getBody().output2().totEvluPflsAmt());
-			List<BalanceOutPut1Res> ownStocks = balanceResResponseEntity.getBody().output1();
+			// 실제로 보유 중인 종목 정보
+			List<StockBalanceOutPut1Res> ownStocks = stockBalanceRes.output1();
 
-			log.info("Current amount: {}", amount);
-
-			// 2. 각 종목의 비중 계산
-			List<StockInfo> stockInfos = new ArrayList<>();
-
-			for (StockOutPut2Res stock : filteredStockList) {
-				Long marketCap = Long.valueOf(stock.valx());
-				double weight = (double)marketCap / totalMarketCap;
-
-				// 가중치에 따라 적용할 금액 계산
-				Double weightedAmount = amount * weight;
-
-				log.info("Ticker: {}, Company: {}, Market Cap: {}, WeightedAmount: {}",
-					stock.symb(), stock.name(), marketCap, weightedAmount);
-
-				StockInfo stockInfo = new StockInfo(stock.symb(), stock.name(), marketCap, weightedAmount);
-				stockInfos.add(stockInfo);
-			}
+			// 시장 비중(가중치)에 따라 매수/매도할 목록(StockInfo) 생성 & 리밸런싱 실행
+			List<StockInfo> stockInfos = createWeightedStockInfos(filteredStockList, amount);
 			rebalanceStocks(stockInfos, ownStocks);
 		}
 	}
 
-	private Long getMarketCap() throws IOException {
+	private Long getLargestMarketCap() throws IOException {
 		String url = "https://kr.tradingview.com/markets/stocks-usa/market-movers-large-cap/";
 		Document doc = Jsoup.connect(url).get();
 
@@ -165,6 +142,8 @@ public class AutoTradingService {
 
 		Long result = (Long)marketCaps.get(0).get("시가총액");
 		log.info("result = " + result);
+		// TODO
+		largestCompany = (String)marketCaps.get(0).get("회사명");
 
 		return result;
 	}
@@ -196,10 +175,46 @@ public class AutoTradingService {
 		}
 	}
 
-	private void rebalanceStocks(List<StockInfo> stocks, List<BalanceOutPut1Res> outputs) {
+	private List<StockOutPut2Res> filterStocksByMarketCap(List<StockOutPut2Res> stockList) {
+		// 시총 내림차순 정렬
+		stockList.sort((s1, s2) -> Long.compare(Long.parseLong(s2.valx()), Long.parseLong(s1.valx())));
 
-		HttpHeaders httpheaders = tokenUtils.createAuthorizationBody("FHKST03030100");
-		String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-daily-chartprice";
+		List<StockOutPut2Res> filtered = new ArrayList<>();
+		long largestMarketCap = Long.parseLong(stockList.get(0).valx());
+
+		for (StockOutPut2Res stock : stockList) {
+			long marketCap = Long.parseLong(stock.valx());
+			if (marketCap >= (long)(largestMarketCap * 0.9)) {
+				filtered.add(stock);
+			} else {
+				break;
+			}
+		}
+		return filtered;
+	}
+
+	private List<StockInfo> createWeightedStockInfos(List<StockOutPut2Res> filteredStockList, double totalAmount) {
+		long total = 0L;
+		for (StockOutPut2Res stock : filteredStockList) {
+			total += Long.parseLong(stock.valx());
+		}
+
+		List<StockInfo> stockInfos = new ArrayList<>();
+		for (StockOutPut2Res stock : filteredStockList) {
+			long marketCap = Long.parseLong(stock.valx());
+			double weight = (double)marketCap / total;
+			double weightedAmount = totalAmount * weight;
+
+			log.info("[종목 비중] Ticker: {}, Name: {}, MarketCap: {}, WeightedAmount: {}", stock.symb(), stock.name(), marketCap, weightedAmount);
+
+			stockInfos.add(new StockInfo(stock.symb(), stock.name(), marketCap, weightedAmount));
+		}
+
+		return stockInfos;
+	}
+
+	private void rebalanceStocks(List<StockInfo> stocks, List<StockBalanceOutPut1Res> outputs) {
+
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
 		LocalDate date = LocalDate.now();
 		String formattedDate = date.format(formatter);
@@ -209,76 +224,55 @@ public class AutoTradingService {
 		parameters.put("FID_INPUT_DATE_2", formattedDate);
 		parameters.put("FID_PERIOD_DIV_CODE", "D");
 
+		// 나스닥 지수 분석
 		// 나중가면 제로 금리도 고려
-		NasdaqTriggerInfo info = readNasdaq();
-		Boolean trigger = info.trigger();
-		LocalDate localDate = info.date();
+		Boolean trigger = readIndices();
 
 		for (StockInfo stock : stocks) {
-			Optional<PeekStockData> optionalPeekStockData = peekStockDataRepository.findByTicker(stock.ticker());
-			optionalPeekStockData.ifPresentOrElse(
-				data -> parameters.put("FID_INPUT_DATE_1", String.valueOf(data.getUpdateDate())),
-				() -> parameters.put("FID_INPUT_DATE_1", "20240102")
+			Optional<Stock> optionalStock = stockRepository.findByTicker(stock.ticker());
+			// 들어있는지 유무 체크
+			optionalStock.ifPresentOrElse(data -> parameters.put("FID_INPUT_DATE_1", String.valueOf(data.getDate())), () -> parameters.put("FID_INPUT_DATE_1", "20240102")
+				// 일단은 전체 데이터가 아닌 해당 날짜 기준부터..
 			);
+
 			parameters.put("FID_INPUT_ISCD", stock.ticker());
 
-			ResponseEntity<StockInfoRes> response = apiUtils.getRequest(httpheaders, URL, parameters, StockInfoRes.class);
+			ResponseEntity<StockInfoRes> response = apiUtils.getRequest(tokenUtils.createAuthorizationBody("FHKST03030100"),
+				"https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-daily-chartprice", parameters, StockInfoRes.class);
 
-			StockInfoOutputRes max = getHighestData(response.getBody().output2());
+			List<StockInfoOutputRes> stockData = Objects.requireNonNull(response.getBody()).output2();    // 메서드 호출 'output2'이(가) 'NullPointerException'을 생성할 수 있기 때문에..
 
-			StockInfoOutputRes min = getLowestDataAfterHighest(response.getBody().output2(), localDate);
+			saveStockData(stockData, stock.ticker());
+			Stock filteredHighestData = stockRepository.findTopByTickerOrderByPriceDesc(stock.ticker());
+			Stock filteredLowestDataAfterHighestData = stockRepository.findTopByTickerAndDateAfterOrderByPriceAsc(stock.ticker(), filteredHighestData.getDate());
 
-			// TODO
-			optionalPeekStockData.ifPresentOrElse(
-				data -> {
-					data.updateData(
-						Double.valueOf(max.ovrsNmixPrpr()),
-						Double.valueOf(min.ovrsNmixPrpr()),
-						LocalDate.now()
-					);
-					peekStockDataRepository.save(data);
-				},
-				() -> {
-					PeekStockData newData = PeekStockData.builder()
-						.ticker(stock.ticker())
-						.highestClosingPrice(Double.valueOf(max.ovrsNmixPrpr()))
-						.lowestClosingPrice(Double.valueOf(min.ovrsNmixPrpr()))
-						.updateDate(LocalDate.now())
-						.build();
-					peekStockDataRepository.save(newData);
-				}
-			);
+			double highestPrice = filteredHighestData.getPrice();
+			double lowestPriceAfterHighestPrice = filteredLowestDataAfterHighestData.getPrice();
+			double currentPrice = getCurrentPrice(stock.ticker());
 
-			// 3개의 값이 모두 같은 경우가 발생할 수 있음.
-			// 그리고 null 가져오는 문제.
-			Double highestPrice = Double.valueOf(max.ovrsNmixPrpr());
-			Double lowestPrice = Double.valueOf(min.ovrsNmixPrpr());
-			Double currentPrice = getCurrentPrice(stock.ticker());
+			StockBalanceOutPut1Res foundStock = outputs.stream().filter(stockBalanceOutPut1Res -> stockBalanceOutPut1Res.ovrsPdno().equals(stock.ticker())).findFirst().orElse(null);
+			double ownAmount = (foundStock == null) ? 0.0 : Double.parseDouble(foundStock.ovrsStckEvluAmt());
 
-			BalanceOutPut1Res foundStock = outputs.stream()
-				.filter(balanceOutPut1Res -> balanceOutPut1Res.ovrsPdno().equals(stock.ticker()))
-				.findFirst()
-				.orElse(null);
-			Double ownAmount = Double.valueOf(foundStock.ovrsStckEvluAmt());
+			// 매수 주문을 넣는 기준은 전체 보유금 기준으로 하는데 기존 주식을 보유함에 따라 매수 주문을 넣지 못하는 문제가 발생할 수 있음.
+			// 그래서 모든 주식 매도 주문 체결 -> 모든 주식 매수 주문
 			// 일정 수량 판매, 일정 수량 매수
-
 			if (trigger) {
 				// 그리고 전저점 체크하고 전저점 대비 10% 상승 시 보유현금 전부 매수
-				if (lowestPrice * 1.1 < currentPrice) {
+				if (lowestPriceAfterHighestPrice * 1.1 < currentPrice) {
 					// 보유액수 뺀 나머지 매수 (amount - ownAmount) 근데 음수가 나오면? 그만큼 매도 진행.
-					Double result = stock.amount() - ownAmount;
+					double result = stock.amount() - ownAmount;
 
 					if (result > 0) {
 						log.info("풀 매수: {}", stock.amount());
-						stockOrder(stock.ticker(), (int)(result/currentPrice), currentPrice, "BUY");
+						stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY");
 					} else {
 						log.info("매도: {}", -result);
-						stockOrder(stock.ticker(), (int)(result/currentPrice), currentPrice, "SELL");
+						stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL");
 					}
 				}
 
 				if (currentPrice < highestPrice) {
-					Double totalDropPercentage = (highestPrice - currentPrice) / highestPrice;
+					double totalDropPercentage = (highestPrice - currentPrice) / highestPrice;
 
 					int dropCount = (int)(totalDropPercentage / 0.05);
 
@@ -288,15 +282,15 @@ public class AutoTradingService {
 
 						// 현재 해당 주식의 보유량 체크
 						// amountToPurchase - ownAmount (마찬가지로 음수일 경우 그만큼 매도 진행)
-						Double result = amountToPurchase - ownAmount;
+						double result = amountToPurchase - ownAmount;
 
 						if (result > 0) {
 							log.info("매수 액수: {}", result);
-							stockOrder(stock.ticker(), (int)(result/currentPrice), currentPrice, "BUY");
+							stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY");
 
 						} else {
 							log.info("매도: {}", -result);
-							stockOrder(stock.ticker(), (int)(result/currentPrice), currentPrice, "SELL");
+							stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL");
 						}
 					}
 				}
@@ -304,7 +298,7 @@ public class AutoTradingService {
 				// 하락 비율 계산
 				// 주식 조회 후 전고점 대비 -2.5% 떨어질 때마다 10% 현금화 진행
 				if (currentPrice < highestPrice) {
-					Double totalDropPercentage = (highestPrice - currentPrice) / highestPrice;
+					double totalDropPercentage = (highestPrice - currentPrice) / highestPrice;
 
 					// 하락 비율이 2.5%의 배수인지 확인
 					int dropCount = (int)(totalDropPercentage / 0.025);
@@ -318,23 +312,21 @@ public class AutoTradingService {
 						// amount - amountToLiquidate (양수: 매수, 음수: 매도)
 						log.info("현금화 액수: {}", amountToLiquidate);
 
-						Double result = -(ownAmount - stock.amount()) + stock.amount() - amountToLiquidate;
+						double result = -(ownAmount - stock.amount()) + stock.amount() - amountToLiquidate;
 						if (result > 0) {
 							log.info("매수 액수: {}", result);
-							stockOrder(stock.ticker(), (int)(result/currentPrice), currentPrice, "BUY");
+							stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY");
 						} else {
 							log.info("현금화 액수: {}", result);
-							stockOrder(stock.ticker(), (int)(result/currentPrice), currentPrice, "SELL");
+							stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL");
 						}
 					}
 				}
 			}
-
 		}
 	}
 
-	// TODO check to exist gap
-	private NasdaqTriggerInfo readNasdaq() {
+	public IndicesRes readIndices2(String ticker, String code) {
 		// api 대체할만한게 있는지..
 
 		HttpHeaders httpheaders = tokenUtils.createAuthorizationBody("FHKST03030100");
@@ -346,71 +338,73 @@ public class AutoTradingService {
 		String formattedYesterday = yesterday.format(formatter);
 
 		Map<String, String> parameters = new HashMap<>();
-		parameters.put("FID_COND_MRKT_DIV_CODE", "N");
-		parameters.put("FID_INPUT_ISCD", "COMP");
+		parameters.put("FID_COND_MRKT_DIV_CODE", code);
+		parameters.put("FID_INPUT_ISCD", ticker);
 		parameters.put("FID_INPUT_DATE_1", formattedYesterday);
 		parameters.put("FID_INPUT_DATE_2", formattedToday);
 		parameters.put("FID_PERIOD_DIV_CODE", "D");
 
-		ResponseEntity<NasdaqInfoRes> response = apiUtils.getRequest(httpheaders, URL, parameters, NasdaqInfoRes.class);
+		ResponseEntity<IndicesInfoRes> response = apiUtils.getRequest(httpheaders, URL, parameters, IndicesInfoRes.class);
+		log.info(String.valueOf(response.getBody()));
+		IndicesInfoRes res = response.getBody();
 
-		Double result = Double.parseDouble(response.getBody().output1().prdyCtrt());
-		log.info("나스닥 지수 조회 성공 {}", result);
-
-		Optional<Nasdaq> optionalNasdaq = nasdaqRepository.findById(1L);
-		Nasdaq nasdaq = optionalNasdaq.orElseGet(
-			() -> Nasdaq.builder()
-				.trigger(true)
-				.tradingDate(LocalDate.of(2024, 9, 3))
-				.numberOfConsecutiveRises(0L)
-				.build()
-		);
-
-		if (result <= -3) {
-			nasdaq.updateNasdaqData(today, 0L, true);
-
-		} else if (result > 0) {
-			nasdaq.updateNasdaqData(nasdaq.getNumberOfConsecutiveRises() + 1);
-		} else {
-			nasdaq.updateNasdaqData(0L);
-		}
-
-		if (nasdaq.getTrigger()) {
-			if (nasdaq.getTradingDate().isBefore(today.minusMonths(1).minusDays(15))) {
-				// tradingDate가 1.5달 전보다 이전일 때
-				if (nasdaq.getNumberOfConsecutiveRises() >= 8) {
-					nasdaq.updateNasdaqData(false);
-				}
-			}
-			if (nasdaq.getTradingDate().isBefore(today.minusMonths(2))) {
-				nasdaq.updateNasdaqData(false);
-			}
-		}
-		nasdaqRepository.save(nasdaq);
-
-		return new NasdaqTriggerInfo(nasdaq.getTrigger(), nasdaq.getTradingDate());
+		return IndicesRes.builder().name(ticker).value(Float.valueOf(res.output1().ovrsNmixPrpr())).rate(Float.valueOf(res.output1().prdyCtrt())).build();
 	}
 
-	private StockInfoOutputRes getHighestData(List<StockInfoOutputRes> outputRes) {
-		return outputRes.stream()
-			.max(Comparator.comparingDouble(item -> Double.parseDouble(item.ovrsNmixPrpr())))
-			.orElseThrow(() -> new RuntimeException("나스닥 데이터 리스트가 비어있음."));
-	}
+	private Boolean readIndices() {
+		Nasdaq nasdaq = nasdaqRepository.findTopByOrderByDateDesc();
+		LocalDate previousUpdateDate = nasdaq.getDate();
 
-	private StockInfoOutputRes getLowestDataAfterHighest(List<StockInfoOutputRes> outputRes, LocalDate highestDate) {
-
+		// 시가, 현재가로 조회 -> db에 저장 -> 데이터 꺼내서 해당 트리거 로직 구현
+		HttpHeaders httpheaders = tokenUtils.createAuthorizationBody("FHKST03030100");
+		String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-daily-chartprice";
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
-		if (LocalDate.now().equals(highestDate)) {
-			return outputRes.stream()
-				.filter(data -> LocalDate.parse(data.stckBsopDate(), formatter).equals(highestDate))
-				.min(Comparator.comparingDouble(data -> Double.parseDouble(data.ovrsNmixPrpr())))
-				.orElseThrow(() -> new RuntimeException("당일 최저가 데이터를 찾을 수 없음."));
+		LocalDate today = LocalDate.now();
+
+		if (!today.equals(previousUpdateDate)) {
+			String formattedToday = today.format(formatter);
+			String formattedPreviousUpdateDate = previousUpdateDate.format(formatter);
+
+			Map<String, String> parameters = new HashMap<>();
+			parameters.put("FID_COND_MRKT_DIV_CODE", "N");
+			parameters.put("FID_INPUT_ISCD", "COMP");
+			parameters.put("FID_INPUT_DATE_1", formattedPreviousUpdateDate);
+			parameters.put("FID_INPUT_DATE_2", formattedToday);
+			parameters.put("FID_PERIOD_DIV_CODE", "D");
+
+			ResponseEntity<NasdaqDataRes> response = apiUtils.getRequest(httpheaders, URL, parameters, NasdaqDataRes.class);
+			List<NasdaqOutput2Res> nasdaqData = Objects.requireNonNull(response.getBody()).output2();
+
+			saveNasdaqData(nasdaqData);
 		}
 
-		return outputRes.stream()
-			.filter(data -> LocalDate.parse(data.stckBsopDate(), formatter).isAfter(highestDate))
-			.min(Comparator.comparingDouble(data -> Double.parseDouble(data.ovrsNmixPrpr())))
-			.orElseThrow(() -> new RuntimeException("최고가 이후 최저가 데이터를 찾을 수 없음."));
+		Nasdaq latestMinusThreeNasdaq = nasdaqRepository.findTopByRateLessThanEqualOrderByDateDesc(-3.0);
+
+		LocalDate dateOfNasdaq = latestMinusThreeNasdaq.getDate();
+		LocalDate twoMonthsAgo = LocalDate.now().minusMonths(2);
+		LocalDate oneAndHalfMonthsAgo = LocalDate.now().minusDays(45);
+
+		if (dateOfNasdaq.isBefore(oneAndHalfMonthsAgo)) {
+
+			// 2달 이상인가?
+			if (dateOfNasdaq.isBefore(twoMonthsAgo)) {
+				// 트리거 해제
+				return false;
+			}
+			List<Stock> dataAfterReferenceDate = stockRepository.findByTickerAndDateAfterOrderByDateAsc(largestCompany, dateOfNasdaq);
+
+			// 8거래일 연속 상승
+			return !isEightDaysUp(dataAfterReferenceDate);
+		}
+		return true;
+	}
+
+	private void saveStockData(List<StockInfoOutputRes> stockData, String ticker) {
+		List<Stock> stocks = stockData.stream()
+			.map(data -> Stock.builder().ticker(ticker).date(LocalDate.parse(data.stckBsopDate())).price(Double.valueOf(data.ovrsNmixPrpr())).build())
+			.collect(Collectors.toList());
+
+		stockRepository.saveAll(stocks);
 	}
 
 	private Double getCurrentPrice(String ticker) {
@@ -427,6 +421,58 @@ public class AutoTradingService {
 		ResponseEntity<StockCurrentRes> response = apiUtils.getRequest(httpheaders, URL, parameters, StockCurrentRes.class);
 		log.info("{} 현재가 조회 성공 {}", ticker, response.getBody().output1().last());
 		return Double.valueOf(response.getBody().output1().last());
+	}
+
+	private void saveNasdaqData(List<NasdaqOutput2Res> nasdaqData) {
+
+		nasdaqData.sort(Comparator.comparing(NasdaqOutput2Res::stckBsopDate));
+
+		List<Nasdaq> nasdaqs = new ArrayList<>();
+		Double previousPrice = null;
+
+		for (NasdaqOutput2Res data : nasdaqData) {
+			LocalDate date = LocalDate.parse(data.stckBsopDate());
+			Double todayPrice = Double.valueOf(data.ovrsNmixPrpr());
+
+			Double rate = null;
+			if (previousPrice != null) {
+				rate = ((todayPrice - previousPrice) / previousPrice) * 100.0;
+			} else {
+				rate = 0.0;
+			}
+
+			Nasdaq nasdaq = Nasdaq.builder().date(date).price(todayPrice).rate(rate).build();
+			nasdaqs.add(nasdaq);
+
+			previousPrice = todayPrice;
+		}
+
+		nasdaqRepository.saveAll(nasdaqs);
+	}
+
+	private Boolean isEightDaysUp(List<Stock> data) {
+		// 8거래일 이상?
+		if (data.size() < 8) {
+			return false;
+		}
+		// startIndex = 0 ~ stocks.size() - 8
+		for (int startIndex = 0; startIndex <= data.size() - 8; startIndex++) {
+			boolean allUp = true;
+
+			// startIndex+1 ~ startIndex+7까지 체크
+			for (int i = startIndex + 1; i < startIndex + 8; i++) {
+				double prevPrice = data.get(i - 1).getPrice();
+				double currPrice = data.get(i).getPrice();
+				if (currPrice <= prevPrice) {
+					allUp = false;
+					break;
+				}
+			}
+			if (allUp) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void stockOrder(String ticker, Integer quantity, Double price, String orderType) {
@@ -448,5 +494,27 @@ public class AutoTradingService {
 		ResponseEntity<String> response = apiUtils.getRequest(httpheaders, URL, parameters, String.class);
 
 		log.info("{} {}{} 주문 성공 {}", quantity, ticker, orderType, response.getBody());
+	}
+
+	public NasdaqDataRes outputNasdaqData() {
+		HttpHeaders httpheaders = tokenUtils.createAuthorizationBody("FHKST03030100");
+		String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-daily-chartprice";
+
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+		LocalDate today = LocalDate.now();
+		String formattedToday = today.format(formatter);
+
+		Map<String, String> parameters = new HashMap<>();
+		parameters.put("FID_COND_MRKT_DIV_CODE", "N");
+		parameters.put("FID_INPUT_ISCD", "COMP");
+		parameters.put("FID_INPUT_DATE_1", "20230101");
+		parameters.put("FID_INPUT_DATE_2", formattedToday);
+		parameters.put("FID_PERIOD_DIV_CODE", "D");
+
+		ResponseEntity<NasdaqDataRes> response = apiUtils.getRequest(httpheaders, URL, parameters, NasdaqDataRes.class);
+
+		log.info("Response body: {}", response.getBody());
+
+		return response.getBody();
 	}
 }
