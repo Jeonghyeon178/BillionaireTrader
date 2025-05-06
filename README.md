@@ -26,18 +26,21 @@
 
 ## 📦 설치 방법
 
+### 1. 프로젝트 클론
 ```bash
-# 1. 프로젝트 클론
 git clone https://github.com/Jeonghyeon178/BillionaireTrader.git
 cd BillionaireTrader/backend
+```
 
-# 2. 환경변수 설정
-# application.properties
+### 2. 환경변수 설정 (application.properties)
+```bash
 # 한국투자증권 Open API 설정
 ks.app-key=Your_App_Key
 ks.app-secret=Your_App_Secret
 ks.account-number=Your_Account_Number
 ks.account-product-code=Your_Account_Product_Code
-
-# 3. 실행
+```
+### 3. 실행
+```bash
 ./gradlew bootRun
+```
