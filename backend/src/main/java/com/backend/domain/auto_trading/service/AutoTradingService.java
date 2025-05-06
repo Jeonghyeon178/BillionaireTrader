@@ -69,7 +69,7 @@ public class AutoTradingService {
 	private String accountProductCode;
 	private final StockRepository stockRepository;
 
-	// 17시 이후 사용 가능. (18시)
+	@Scheduled(cron = "0 55 4 * * MON-FRI") // 월-금, 오전 4시 55분마다
 	public void searchStocks() throws IOException {
 
 		// 시가총액 범위 결정: TradingView 스크래핑 통해 얻은 시총의 90% ~ 10배까지
@@ -399,7 +399,7 @@ public class AutoTradingService {
 				return false;
 			}
 
-			// 🟡 실제 미체결 조회 API 호출
+			// 미체결 조회 API 호출
 			HttpHeaders httpHeaders = tokenUtils.createAuthorizationBody("TTTS3018R");
 			String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/inquire-nccs";
 
