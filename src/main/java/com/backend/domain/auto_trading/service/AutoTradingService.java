@@ -2,6 +2,7 @@ package com.backend.domain.auto_trading.service;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -26,9 +27,11 @@ import com.backend.domain.account.dto.response.CashBalanceRes;
 import com.backend.domain.account.dto.response.StockBalanceOutPut1Res;
 import com.backend.domain.account.dto.response.StockBalanceRes;
 import com.backend.domain.account.service.AccountService;
+import com.backend.domain.auto_trading.dto.common.OrderTask;
 import com.backend.domain.auto_trading.dto.common.StockInfo;
 import com.backend.domain.auto_trading.dto.response.IndicesInfoRes;
 import com.backend.domain.auto_trading.dto.response.IndicesRes;
+import com.backend.domain.auto_trading.dto.response.InquireNccsRes;
 import com.backend.domain.auto_trading.dto.response.NasdaqDataRes;
 import com.backend.domain.auto_trading.dto.response.NasdaqOutput2Res;
 import com.backend.domain.auto_trading.dto.response.StockCurrentRes;
@@ -99,7 +102,7 @@ public class AutoTradingService {
 			CashBalanceRes cashBalanceRes = accountBalance.cashBalanceRes();
 
 			// 주식 총평가액 + 외화예수금
-			double amount = Double.parseDouble(stockBalanceRes.output2().totEvluPflsAmt() + cashBalanceRes.output().get(0).frcrDnclAmt1());
+			double amount = Double.parseDouble(stockBalanceRes.output2().totEvluPflsAmt()) + Double.parseDouble(cashBalanceRes.output().get(0).frcrDnclAmt1());
 			log.info("Current total amount (stock + cash): {}", amount);
 
 			// 실제로 보유 중인 종목 정보
@@ -107,6 +110,7 @@ public class AutoTradingService {
 
 			// 시장 비중(가중치)에 따라 매수/매도할 목록(StockInfo) 생성 & 리밸런싱 실행
 			List<StockInfo> stockInfos = createWeightedStockInfos(filteredStockList, amount);
+
 			rebalanceStocks(stockInfos, ownStocks);
 		}
 	}
@@ -224,12 +228,27 @@ public class AutoTradingService {
 		parameters.put("FID_INPUT_DATE_2", formattedDate);
 		parameters.put("FID_PERIOD_DIV_CODE", "D");
 
+		List<OrderTask> sellOrders = new ArrayList<>();
+		List<OrderTask> buyOrders = new ArrayList<>();
+
 		// 나스닥 지수 분석
 		// 나중가면 제로 금리도 고려
 		Boolean trigger = readIndices();
 
+		// 나중에 outputs가 null인지 체크해야함.
+		// 1. 정보와 다른 주식을 들고 있으면 전량 매도.
+		for (StockBalanceOutPut1Res holdingStock : outputs) {
+			Optional<StockInfo> targets = stocks.stream().filter(stockInfo -> stockInfo.ticker().equals(holdingStock.ovrsPdno())).findFirst();
+			if (targets.isEmpty() && !holdingStock.ovrsPdno().equals("")) {
+				log.info("{} 전량매도", holdingStock.ovrsItemName());
+				sellOrders.add(new OrderTask(holdingStock.ovrsPdno(), Integer.valueOf(holdingStock.ordPsblQty()), Double.valueOf(holdingStock.nowPric2()), "SELL"));
+				outputs.remove(holdingStock.ovrsPdno());
+				// stockOrder(holdingStock.ovrsPdno(), Integer.valueOf(holdingStock.ordPsblQty()), Double.valueOf(holdingStock.nowPric2()), "SELL");
+			}
+		}
+
 		for (StockInfo stock : stocks) {
-			Optional<Stock> optionalStock = stockRepository.findByTicker(stock.ticker());
+			Optional<Stock> optionalStock = stockRepository.findTopByTickerOrderByDateDesc(stock.ticker());
 			// 들어있는지 유무 체크
 			optionalStock.ifPresentOrElse(data -> parameters.put("FID_INPUT_DATE_1", String.valueOf(data.getDate())), () -> parameters.put("FID_INPUT_DATE_1", "20240102")
 				// 일단은 전체 데이터가 아닌 해당 날짜 기준부터..
@@ -250,8 +269,15 @@ public class AutoTradingService {
 			double lowestPriceAfterHighestPrice = filteredLowestDataAfterHighestData.getPrice();
 			double currentPrice = getCurrentPrice(stock.ticker());
 
+			// 그냥 그래서 데이터를 해당 메서드로 넘기기 전에 데이터를 가공해야 할 듯.
 			StockBalanceOutPut1Res foundStock = outputs.stream().filter(stockBalanceOutPut1Res -> stockBalanceOutPut1Res.ovrsPdno().equals(stock.ticker())).findFirst().orElse(null);
-			double ownAmount = (foundStock == null) ? 0.0 : Double.parseDouble(foundStock.ovrsStckEvluAmt());
+			// foundStock이 없으면 이 주식은 보유 중이 아님 → 이번 루프 스킵
+			if (foundStock == null) {
+				log.info("해당 주식은 보유 중이지 않아 스킵: {}", stock.ticker());
+				continue;
+			}
+
+			double ownAmount = Double.parseDouble(foundStock.ovrsStckEvluAmt());
 
 			// 매수 주문을 넣는 기준은 전체 보유금 기준으로 하는데 기존 주식을 보유함에 따라 매수 주문을 넣지 못하는 문제가 발생할 수 있음.
 			// 그래서 모든 주식 매도 주문 체결 -> 모든 주식 매수 주문
@@ -263,11 +289,13 @@ public class AutoTradingService {
 					double result = stock.amount() - ownAmount;
 
 					if (result > 0) {
-						log.info("풀 매수: {}", stock.amount());
-						stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY");
+						log.info("{} 매수: {}", stock.ticker(), stock.amount());
+						buyOrders.add(new OrderTask(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY"));
+						// stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY");
 					} else {
-						log.info("매도: {}", -result);
-						stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL");
+						log.info("{} 매도: {}", stock.ticker(), -result);
+						sellOrders.add(new OrderTask(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL"));
+						// stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL");
 					}
 				}
 
@@ -285,12 +313,14 @@ public class AutoTradingService {
 						double result = amountToPurchase - ownAmount;
 
 						if (result > 0) {
-							log.info("매수 액수: {}", result);
-							stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY");
+							log.info("{} 매수: {}", stock.ticker(), result);
+							buyOrders.add(new OrderTask(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY"));
+							// stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY");
 
 						} else {
-							log.info("매도: {}", -result);
-							stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL");
+							log.info("{} 매도: {}", stock.ticker(), -result);
+							sellOrders.add(new OrderTask(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL"));
+							// stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL");
 						}
 					}
 				}
@@ -315,15 +345,86 @@ public class AutoTradingService {
 						double result = -(ownAmount - stock.amount()) + stock.amount() - amountToLiquidate;
 						if (result > 0) {
 							log.info("매수 액수: {}", result);
-							stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY");
+							buyOrders.add(new OrderTask(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY"));
+							// stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "BUY");
 						} else {
 							log.info("현금화 액수: {}", result);
-							stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL");
+							sellOrders.add(new OrderTask(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL"));
+							// stockOrder(stock.ticker(), (int)(result / currentPrice), currentPrice, "SELL");
 						}
 					}
 				}
 			}
+			untitled(sellOrders, buyOrders);
 		}
+	}
+
+	private void untitled(List<OrderTask> sellOrders, List<OrderTask> buyOrders){
+		// 1. 매도 주문
+		sellOrders.forEach(orderTask -> stockOrder(
+			orderTask.ticker(),
+			orderTask.quantity(),
+			orderTask.price(),
+			orderTask.orderType()
+		));
+
+		// 2. 체결 대기 (예: 최대 30초 동안 3초마다 polling)
+		boolean allSellSettled = waitUntilSellOrdersSettled(30, 3);  // timeout: 30s, interval: 3s
+
+
+		if (allSellSettled) {
+			log.info("✅ 매도 주문 체결 확인 완료, 매수 주문 진행");
+			buyOrders.forEach(orderTask -> stockOrder(
+				orderTask.ticker(),
+				orderTask.quantity(),
+				orderTask.price(),
+				orderTask.orderType()
+			));
+		} else {
+			// TODO 나중에 제대로 확인해보기.
+			log.warn("⚠️ 매도 주문 체결 실패 또는 타임아웃. 매수 주문 생략됨");
+		}
+		log.info("done");
+
+	}
+
+	private boolean waitUntilSellOrdersSettled(int timeoutSeconds, int pollIntervalSeconds) {
+		int waited = 0;
+
+		while (waited < timeoutSeconds) {
+			try {
+				Thread.sleep(pollIntervalSeconds * 1000L);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return false;
+			}
+
+			// 🟡 실제 미체결 조회 API 호출
+			HttpHeaders httpHeaders = tokenUtils.createAuthorizationBody("TTTS3018R");
+			String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/inquire-nccs";
+
+			Map<String, String> parameters = new HashMap<>();
+			parameters.put("CANO", accountNumber);
+			parameters.put("ACNT_PRDT_CD", accountProductCode);
+			parameters.put("OVRS_EXCG_CD", "NASD");
+			parameters.put("SORT_SQN", "DS");
+			parameters.put("CTX_AREA_FK200", "");
+			parameters.put("CTX_AREA_NK200", "");
+
+			ResponseEntity<InquireNccsRes> response = apiUtils.getRequest(httpHeaders, URL, parameters, InquireNccsRes.class);
+
+			boolean hasUnsettled = Objects.requireNonNull(response.getBody()).output().stream()
+				.anyMatch(inquireNccsOutputRes -> !inquireNccsOutputRes.nccsQty().equals("0"));
+
+			if (!hasUnsettled) {
+				return true; // 미체결 없음
+			}
+
+			log.info("⏳ 미체결 매도 주문 존재. 현재 시간 {}", LocalDateTime.now());
+			waited += pollIntervalSeconds;
+		}
+
+		return false; // 타임아웃됨
 	}
 
 	public IndicesRes readIndices2(String ticker, String code) {
@@ -352,13 +453,16 @@ public class AutoTradingService {
 	}
 
 	private Boolean readIndices() {
-		Nasdaq nasdaq = nasdaqRepository.findTopByOrderByDateDesc();
-		LocalDate previousUpdateDate = nasdaq.getDate();
+		Optional<Nasdaq> optionalNasdaq = nasdaqRepository.findTopByOrderByDateDesc();
+
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+		LocalDate previousUpdateDate = optionalNasdaq
+			.map(Nasdaq::getDate)
+			.orElse(LocalDate.parse("20240101", formatter));
 
 		// 시가, 현재가로 조회 -> db에 저장 -> 데이터 꺼내서 해당 트리거 로직 구현
 		HttpHeaders httpheaders = tokenUtils.createAuthorizationBody("FHKST03030100");
 		String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-daily-chartprice";
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
 		LocalDate today = LocalDate.now();
 
 		if (!today.equals(previousUpdateDate)) {
@@ -400,8 +504,10 @@ public class AutoTradingService {
 	}
 
 	private void saveStockData(List<StockInfoOutputRes> stockData, String ticker) {
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+
 		List<Stock> stocks = stockData.stream()
-			.map(data -> Stock.builder().ticker(ticker).date(LocalDate.parse(data.stckBsopDate())).price(Double.valueOf(data.ovrsNmixPrpr())).build())
+			.map(data -> Stock.builder().ticker(ticker).date(LocalDate.parse(data.stckBsopDate(), formatter)).price(Double.valueOf(data.ovrsNmixPrpr())).build())
 			.collect(Collectors.toList());
 
 		stockRepository.saveAll(stocks);
@@ -429,9 +535,10 @@ public class AutoTradingService {
 
 		List<Nasdaq> nasdaqs = new ArrayList<>();
 		Double previousPrice = null;
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
 
 		for (NasdaqOutput2Res data : nasdaqData) {
-			LocalDate date = LocalDate.parse(data.stckBsopDate());
+			LocalDate date = LocalDate.parse(data.stckBsopDate(), formatter);
 			Double todayPrice = Double.valueOf(data.ovrsNmixPrpr());
 
 			Double rate = null;
@@ -476,6 +583,7 @@ public class AutoTradingService {
 	}
 
 	private void stockOrder(String ticker, Integer quantity, Double price, String orderType) {
+		// 매수, 매도 코드
 		String apiCode = orderType.equals("BUY") ? "TTTT1002U" : "TTTT1006U";
 		HttpHeaders httpheaders = tokenUtils.createAuthorizationBody(apiCode);
 

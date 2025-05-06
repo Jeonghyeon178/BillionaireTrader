@@ -11,7 +11,7 @@ import com.backend.domain.auto_trading.entity.Stock;
 
 @Repository
 public interface StockRepository extends JpaRepository<Stock, Long> {
-	Optional<Stock> findByTicker(String ticker);
+	Optional<Stock> findTopByTickerOrderByDateDesc(String ticker);
 	Stock findTopByTickerOrderByPriceDesc(String ticker);
 	Stock findTopByTickerAndDateAfterOrderByPriceAsc(String ticker, LocalDate date);
 	List<Stock> findByTickerAndDateAfterOrderByDateAsc(String ticker, LocalDate date);
