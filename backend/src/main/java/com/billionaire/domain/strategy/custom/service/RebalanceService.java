@@ -79,27 +79,27 @@ public class RebalanceService {
 		for (StockInfoDto stockInfoDto : stockInfoDtoList) {
 			List<Stock> data = stockService.getStockData(stockInfoDto.ticker());
 			// 전고점
-			Optional<Stock> filteredHighestData = data.stream()
-				.max(Comparator.comparing(Stock::getPrice));
+			Stock highest = data.stream()
+				.max(Comparator.comparing(Stock::getPrice))
+				.orElseThrow(() -> new IllegalStateException("전고점 데이터가 없습니다"));
 
 			// 전고점 이후 전저점
-			Optional<Stock> filteredLowestDataAfterHighestData = filteredHighestData.flatMap(highest ->
-				data.stream()
-					.filter(stock -> stock.getDate().isAfter(highest.getDate()))
-					.min(Comparator.comparing(Stock::getPrice))
-			);
+			Stock lowestAfterHigh = data.stream()
+				.filter(s -> s.getDate().isAfter(highest.getDate()))
+				.min(Comparator.comparing(Stock::getPrice))
+				.orElseThrow(() -> new IllegalStateException("전고점 이후 전저점 데이터가 없습니다"));
 
-			// TODO isPresent..
-			double highestPrice = filteredHighestData.get().getPrice();
-			double lowestPriceAfterHighestPrice = filteredLowestDataAfterHighestData.get().getPrice();
+			double highestPrice = highest.getPrice();
+			double lowestPriceAfterHighestPrice = lowestAfterHigh.getPrice();
 			double currentPrice = data.get(data.size() - 1).getPrice();
 
 			// 평가금액 찾기 (보유 주식 정보에서 해당 티커 찾기)
-			Optional<DetailedStockBalanceData1Res> matchingStock = ownStocks.stream()
+			DetailedStockBalanceData1Res matched = ownStocks.stream()
 				.filter(own -> own.ovrsPdno().equals(stockInfoDto.ticker()))
-				.findFirst();
-			// 평가금액
-			double ownAmount = Double.parseDouble(matchingStock.get().ovrsStckEvluAmt());
+				.findFirst()
+				.orElseThrow(() -> new IllegalStateException("해당 종목 보유 정보를 찾을 수 없습니다: " + stockInfoDto.ticker()));
+
+			double ownAmount = Double.parseDouble(matched.ovrsStckEvluAmt());
 
 			if (!trigger) {
 				// 그리고 전저점 체크하고 전저점 대비 10% 상승 시 보유현금 전부 매수
@@ -203,28 +203,26 @@ public class RebalanceService {
 	private void buyTargetStocks(boolean trigger, List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
 		for (StockInfoDto stockInfoDto : stockInfoDtoList) {
 			List<Stock> data = stockService.getStockData(stockInfoDto.ticker());
-			// 전고점
-			Optional<Stock> filteredHighestData = data.stream()
-				.max(Comparator.comparing(Stock::getPrice));
 
-			// 전고점 이후 전저점
-			Optional<Stock> filteredLowestDataAfterHighestData = filteredHighestData.flatMap(highest ->
-				data.stream()
-					.filter(stock -> stock.getDate().isAfter(highest.getDate()))
-					.min(Comparator.comparing(Stock::getPrice))
-			);
+			Stock highest = data.stream()
+				.max(Comparator.comparing(Stock::getPrice))
+				.orElseThrow(() -> new IllegalStateException("전고점 데이터가 없습니다"));
 
-			// TODO isPresent..
-			double highestPrice = filteredHighestData.get().getPrice();
-			double lowestPriceAfterHighestPrice = filteredLowestDataAfterHighestData.get().getPrice();
+			Stock lowestAfterHigh = data.stream()
+				.filter(s -> s.getDate().isAfter(highest.getDate()))
+				.min(Comparator.comparing(Stock::getPrice))
+				.orElseThrow(() -> new IllegalStateException("전고점 이후 전저점 데이터가 없습니다"));
+
+			double highestPrice = highest.getPrice();
+			double lowestPriceAfterHighestPrice = lowestAfterHigh.getPrice();
 			double currentPrice = data.get(data.size() - 1).getPrice();
 
-			// 평가금액 찾기 (보유 주식 정보에서 해당 티커 찾기)
-			Optional<DetailedStockBalanceData1Res> matchingStock = ownStocks.stream()
+			DetailedStockBalanceData1Res matched = ownStocks.stream()
 				.filter(own -> own.ovrsPdno().equals(stockInfoDto.ticker()))
-				.findFirst();
-			// 평가금액
-			double ownAmount = Double.parseDouble(matchingStock.get().ovrsStckEvluAmt());
+				.findFirst()
+				.orElseThrow(() -> new IllegalStateException("해당 종목 보유 정보를 찾을 수 없습니다: " + stockInfoDto.ticker()));
+
+			double ownAmount = Double.parseDouble(matched.ovrsStckEvluAmt());
 
 			if (!trigger) {
 				// 그리고 전저점 체크하고 전저점 대비 10% 상승 시 보유현금 전부 매수
