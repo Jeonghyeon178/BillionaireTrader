@@ -15,6 +15,7 @@ import com.billionaire.domain.pendingorder.service.PendingOrderService;
 import com.billionaire.domain.stock.entity.Stock;
 import com.billionaire.domain.stock.service.StockService;
 import com.billionaire.domain.strategy.custom.dto.StockInfoDto;
+import com.billionaire.domain.strategy.custom.type.InterestCondition;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,8 @@ public class RebalanceService {
 	private final StockService stockService;
 
 	public void rebalance(List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
-		// TODO 금리 체크
+		// TODO 금리 체크. 추후에 매도, 매수 전략에 반영할 수 있도록..
+		InterestCondition interestCondition = InterestCondition.NORMAL;
 
 		// 지수 트리거 설정.
 		boolean trigger = orderTriggerService.isPanicOver();
