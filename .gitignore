@@ -39,4 +39,4 @@ out/
 node_modules/
 dist/
 
-src/main/resources/application.properties
+.env
