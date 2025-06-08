@@ -34,20 +34,20 @@ public class RebalanceService {
 		InterestCondition interestCondition = InterestCondition.NORMAL;
 
 		// 지수 트리거 설정.
-		boolean trigger = orderTriggerService.isPanicOver();
+		boolean trigger = orderTriggerService.isPanic();
 
 		// 매도
 		flushNonStrategyStocks(ownStocks, stockInfoDtoList);
 
 		// 기존 보유 주식 수 조정 (매도)
-		adjustStocks(trigger, ownStocks, stockInfoDtoList);
+		rebalanceForSelling(trigger, ownStocks, stockInfoDtoList);
 
 		// pendingOrder() ..
 		boolean sellOrdersDone = waitUntilSellOrdersFilled();
 
 		// 매수 대상 주식 매수
 		if (sellOrdersDone) {
-			buyTargetStocks(trigger,ownStocks, stockInfoDtoList);
+			rebalanceForBuying(trigger,ownStocks, stockInfoDtoList);
 		}
 
 	}
@@ -75,7 +75,7 @@ public class RebalanceService {
 		}
 	}
 
-	private void adjustStocks(boolean trigger, List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
+	private void rebalanceForSelling(boolean trigger, List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
 		for (StockInfoDto stockInfoDto : stockInfoDtoList) {
 			List<Stock> data = stockService.getStockData(stockInfoDto.ticker());
 			// 전고점
@@ -200,7 +200,7 @@ public class RebalanceService {
 		return false;
 	}
 
-	private void buyTargetStocks(boolean trigger, List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
+	private void rebalanceForBuying(boolean trigger, List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
 		for (StockInfoDto stockInfoDto : stockInfoDtoList) {
 			List<Stock> data = stockService.getStockData(stockInfoDto.ticker());
 

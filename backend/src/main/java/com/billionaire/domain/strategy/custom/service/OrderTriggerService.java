@@ -1,6 +1,7 @@
 package com.billionaire.domain.strategy.custom.service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -19,111 +20,97 @@ import lombok.extern.slf4j.Slf4j;
 public class OrderTriggerService {
 	private final IndexService indexService;
 
-	// 한 달 이내에 -3% 이상이 4번 뜨고 이후 두 달 동안 -3%가 뜨지 않은 경우.
-	// -3퍼가 뜬 시점으로부터 3회 이상 -3퍼
-	// 중간에 -3%가 뜬다면 기준 날짜는 그 해당 날짜 시점에서 다시 두 달 동안 뜨지 않아야 함.
-
-	// 데이터 과거부터 현재 순으로 정렬. -> 가장 최근 -3% 데이터 추적.
-	// 역순으로 트래킹. (기준일 한 달을 지정해두고 4번 발생하는지 체크. & 두 달 이내에 뜨는 지 -3%가 뜨는 지 확인
-	// 끊기면 시작 기준일자 확인 할 수 있음.
-	// 그러면 다시 돌아와서 최신 -3% 지점 이후 2달이 지났는지 or 이전에 기준일로부터 오늘자까지 8거래일 연속 상승이 있었는지 체크.
-
-	/**
-	 * 공황 트리거 조건 판단 메인 메서드
-	 * 조건:
-	 * - 한 달 내 -3% 하락 4회 발생한 기준일이 존재하고
-	 * - 기준일 이후 2달간 -3% 하락 없거나, 기준일 이후 8거래일 연속 상승하면 true
-	 */
 	// TODO 그냥 테스트 코드 작성해서 체크하기
-	public boolean isPanicOver() {
+	public boolean isPanic() {
 		List<Index> data = indexService.getIndexData("COMP", "N").stream()
-			.sorted(Comparator.comparing(Index::getDate)) // 과거 → 현재 정렬
+			.sorted(Comparator.comparing(Index::getDate).reversed()) // 현재 -> 과거
 			.toList();
 
-		Optional<LocalDate> optionalBaseDate = findValidTriggerStartDate(data);
-		// TODO 예외를 두는 것이 나을 듯.
-		if (optionalBaseDate.isEmpty()) {
-			log.info("공황 기준일 미충족 → 트리거 false");
-			return false;
-		}
-
-		LocalDate baseDate = optionalBaseDate.get();
-
-		if (isEightDaysUp(data, baseDate)) {
-			log.info("기준일 이후 8거래일 연속 상승 → 공황 종료");
-			return true;
-		}
-
-		if (LocalDate.now().isAfter(baseDate.plusMonths(2).plusDays(1))) {
-			log.info("기준일 이후 2달 경과 → 공황 종료");
-			return true;
-		}
-
-		log.info("공황 종료 조건 미충족 → 트리거 false");
-		return false;
+		return check(data);
 	}
 
-	/**
-	 * 기준일 탐색 (가장 최근부터 거슬러 올라가며 탐색)
-	 * 조건: 한 달 내 -3% 하락 4회 발생 + 이후 2달간 -3% 하락 없음
-	 */
-	private Optional<LocalDate> findValidTriggerStartDate(List<Index> data) {
-		// 최근 → 과거 순으로 정렬
-		List<Index> reversedData = data.stream()
-			.sorted(Comparator.comparing(Index::getDate).reversed())
-			.toList();
+		// 2달 이내인지
+			// 맞다면 -3%의 4번째 날짜와 첫번째 날짜와 한 달 이내인지.. (4회 이상인지)
+				// 맞다면 가장 최신 -3% 시점으로부터 8거래일 연속 상승이 있었는지..
+					// 있었다면 공황 ㄴㄴ
+					// 아닌 경우 공황 상태.
+				// 아니라면 가장 최신의 -3% 시점이 한 달 이내인지..
+					// 맞다면 가장 최신 -3% 시점 이후 8거래일 연속 상승이 있었는지..
+						// 있었다면 공황 ㄴㄴ
+						// 아니라면 공황
+					// 아니라면 공황 ㄴㄴ
+		private boolean check(List<Index> data) {
+			LocalDate fromDate = LocalDate.now().minusMonths(2).minusDays(1);
+			List<Index> drops = new ArrayList<>();
 
-		for (int i = 0; i < reversedData.size(); i++) {
-			Index current = reversedData.get(i);
-			if (current.getRate() > -3.0)
-				continue;
-
-			LocalDate end = current.getDate();
-			LocalDate start = end.minusMonths(1);
-
-			long dropCount = data.stream()
-				.filter(d -> !d.getDate().isBefore(start) && !d.getDate().isAfter(end))
-				.filter(d -> d.getRate() <= -3.0)
-				.count();
-
-			if (dropCount >= 4) {
-				// 이후 2달간 -3% 하락 존재 여부 확인
-				LocalDate reDropEnd = end.plusMonths(2);
-				boolean hasReDrop = data.stream()
-					.filter(d -> d.getDate().isAfter(end) && !d.getDate().isAfter(reDropEnd))
-					.anyMatch(d -> d.getRate() <= -3.0);
-
-				if (!hasReDrop) {
-					log.info("공황 기준일 탐색 완료: {}", end);
-					return Optional.of(end);
-				} else {
-					log.info("기준일 {} 이후 재하락 발생 → 다음 하락 지점에서 계속 탐색", end);
-					// 역순 탐색이므로 continue만 하면 됨
+			for (Index index : data) {
+				if (!index.getDate().isBefore(fromDate) && index.getRate() <= -3.0) {
+					drops.add(index);
 				}
 			}
-		}
-		return Optional.empty();
-	}
 
-	/**
-	 * 기준일 이후 8거래일 연속 상승 여부 판단
-	 */
-	private boolean isEightDaysUp(List<Index> data, LocalDate baseDate) {
-		List<Index> afterBase = data.stream()
-			.filter(i -> i.getDate().isAfter(baseDate))
+			if (drops.isEmpty()) {
+				log.info("📉 최근 2달간 -3% 하락 없음 → 공황 아님");
+				return false;
+			}
+
+			// 4회 이상인가?
+			if (drops.size() >= 4) {
+				LocalDate first = drops.get(0).getDate();
+				LocalDate fourth = drops.get(3).getDate();
+
+				boolean fourDropsInOneMonth = !first.isAfter(fourth.plusMonths(1).plusDays(1));
+
+				if (fourDropsInOneMonth) {
+					LocalDate dropDate = drops.get(drops.size() - 1).getDate();
+					if (hasEightConsecutiveUps(data, dropDate)) {
+						log.info("📈 공황 해제 (8거래일 연속 상승)");
+						return false;
+					}
+					log.info("⚠️ 공황 상태 (4회 이상 발생)");
+				} else {
+					if (LocalDate.now().isAfter(first.plusMonths(1).plusDays(1))) {
+						log.info("✅ 공황 아님 (최근 하락 발생일로부터 한 달 이상 지남)");
+						return false;
+					}
+					log.info("⚠️ 공황 상태 (4회 이상이지만 1개월 내 조건 미충족)");
+				}
+				return true;
+			}
+
+			// 한 달 내 마지막 -3%인가?
+			LocalDate dropDate = drops.get(0).getDate();
+			if (!dropDate.isBefore(LocalDate.now().minusMonths(1).minusDays(1))) {
+				if (hasEightConsecutiveUps(data, dropDate)) {
+					log.info("📈 공황 아님 (8거래일 연속 상승)");
+					return false;
+				} else {
+					log.info("⚠️ 공황 상태 (한 달 내 -3% 발생, 해제조건 불충족)");
+					return true;
+				}
+			} else {
+				log.info("✅ 공황 아님 (최근 하락 오래됨)");
+				return false;
+			}
+		}
+
+	private boolean hasEightConsecutiveUps(List<Index> data, LocalDate fromDate) {
+		List<Index> filtered = data.stream()
+			.filter(i -> !i.getDate().isBefore(fromDate))
+			.sorted(Comparator.comparing(Index::getDate))
 			.toList();
 
-		for (int i = 0; i <= afterBase.size() - 8; i++) {
+		for (int i = 0; i <= filtered.size() - 8; i++) {
 			boolean allUp = true;
 			for (int j = 1; j < 8; j++) {
-				if (afterBase.get(i + j).getPrice() <= afterBase.get(i + j - 1).getPrice()) {
+				if (filtered.get(i + j).getPrice() <= filtered.get(i + j - 1).getPrice()) {
 					allUp = false;
 					break;
 				}
 			}
-			if (allUp)
-				return true;
+			if (allUp) return true;
 		}
+
 		return false;
 	}
 }
