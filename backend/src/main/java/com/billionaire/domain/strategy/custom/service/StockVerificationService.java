@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 public class StockVerificationService {
 	private final ApiUtils apiUtils;
 	private final TokenUtils tokenUtils;
-	static String url = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/";
+	static String url = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-search";
 
 	public VerifiedDataRes verifyData(Long minMarketCap, Long maxMarketCap) {
 		Map<String, String> params = Map.of(

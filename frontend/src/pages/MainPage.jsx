@@ -16,7 +16,7 @@ const MainPage = () => {
       try {
         setLoading(true); // 로딩 시작
         const [cardResponse, lineResponse, pieResponse] = await Promise.all([
-          axios.get("http://localhost:8080/indices"),
+          axios.get("http://localhost:8080/index"),
           axios.get("http://localhost:8080/nasdaq"),
           axios.get("http://localhost:8080/account"),
         ]);
@@ -54,14 +54,14 @@ const MainPage = () => {
             {cardData.map((data, index) => (
               <Card
                 key={index}
-                index={data.name}
+                index={data.ticker}
                 rate={data.rate}
-                value={data.value}
+                value={data.price}
               />
             ))}
           </div>
           <DetailedCard row={1} data1={lineData} data2={pieData} />
-          <DetailedCard row={2} />
+          {/*<DetailedCard row={2} />*/}
         </div>
       </main>
     </div>

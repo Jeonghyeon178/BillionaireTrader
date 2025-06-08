@@ -19,12 +19,14 @@ import com.billionaire.global.util.ApiUtils;
 import com.billionaire.global.util.DateUtils;
 import com.billionaire.global.util.TokenUtils;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
 @Service
+@Transactional
 public class StockService {
 	private static final String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-daily-chartprice";
 
@@ -38,6 +40,7 @@ public class StockService {
 
 		// 날짜 정렬 보장
 		List<MarketPriceDetailedInfoRes> sorted = stockData.output2().stream()
+			.filter(d -> d.stckBsopDate() != null && !d.stckBsopDate().isBlank())  // null, 빈값 방지
 			.sorted(Comparator.comparing(d -> DateUtils.parse(d.stckBsopDate())))
 			.toList();
 
@@ -73,17 +76,23 @@ public class StockService {
 	private MarketPriceRes fetchStockDataFromAPI(String ticker, String startingDate) {
 		Map<String, String> params = Map.of(
 			"FID_COND_MRKT_DIV_CODE", "N",
-			"FID_INPUT_ISCD", ticker,
+			"FID_INPUT_ISCD", ticker.toUpperCase(),
 			"FID_INPUT_DATE_1", startingDate,
 			"FID_INPUT_DATE_2", DateUtils.nowInYYYYMMDD(),
-			"FID_PERIOD_DIV_CODE", "D"
+			"FID_PERIOD_DIV_CODE", "D",
+			"tr_id", ""
 		);
+
 		ResponseEntity<MarketPriceRes> response = apiUtils.getRequest(
 			tokenUtils.createAuthorizationBody("FHKST03030100"),
 			URL,
 			params,
 			MarketPriceRes.class
 		);
+		log.info(String.valueOf(response.getHeaders()));
+		// TODO
+		// if (response.getHeaders())
+
 		return response.getBody();
 	}
 

@@ -21,7 +21,7 @@ const PieChart = ({ data }) => {
       },
       labels: labels,
       title: {
-        text: "Stock Price Movement",
+        text: "Investment Distribution",
         width: 300,
       },
       responsive: [

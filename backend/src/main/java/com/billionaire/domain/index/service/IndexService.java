@@ -20,12 +20,14 @@ import com.billionaire.global.util.ApiUtils;
 import com.billionaire.global.util.DateUtils;
 import com.billionaire.global.util.TokenUtils;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
 @Service
+@Transactional
 public class IndexService {
 	private static final String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-daily-chartprice";
 

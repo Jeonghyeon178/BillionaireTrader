@@ -1,5 +1,9 @@
 package com.billionaire.domain.account.dto.response;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
+
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record DetailedStockBalance2Res(
 	// String frcrPchsAmt1,	// 외화매입금액
 	// String ovrsRlztPflsAmt,	// 실현손익금액
