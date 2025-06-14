@@ -79,7 +79,6 @@ public class StockService {
 			accumulated.addAll(stocks);
 
 			if (stocks.stream().anyMatch(s -> s.getDate().isEqual(LocalDate.now()))) {
-				hasTodayData = true;
 				break;
 			}
 

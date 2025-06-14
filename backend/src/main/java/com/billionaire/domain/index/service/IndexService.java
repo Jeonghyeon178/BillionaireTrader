@@ -37,37 +37,12 @@ public class IndexService {
 
 	public List<Index> getIndexData(String ticker, String code) {
 		String startingDate = getLatestStoredDate(ticker);
-		MarketPriceRes indexData = fetchIndexDataFromAPI(ticker, code, startingDate);
+		List<Index> allIndexListInAPI = fetchAllIndexDataUntilToday(ticker, code, startingDate);
 
-		// 날짜 기준 정렬 보장
-		List<MarketPriceDetailedInfoRes> sorted = indexData.output2().stream()
-			.sorted(Comparator.comparing(d -> DateUtils.parse(d.stckBsopDate())))
-			.toList();
+		saveIfNotExists(ticker, allIndexListInAPI);
 
-		List<Index> indexListInAPI = new ArrayList<>();
-		Double previousPrice = null;
-
-		for (MarketPriceDetailedInfoRes data : sorted) {
-			LocalDate date = DateUtils.parse(data.stckBsopDate());
-			Double price = Double.valueOf(data.ovrsNmixPrpr());
-			Double rate = (previousPrice == null) ? 0.0 : ((price - previousPrice) / previousPrice) * 100.0;
-
-			indexListInAPI.add(Index.builder()
-				.ticker(ticker)
-				.date(date)
-				.price(price)
-				.rate(rate)
-				.build());
-
-			previousPrice = price;
-		}
-
-		// 오늘 제외 + 중복 저장 방지
-		saveIfNotExists(ticker, indexListInAPI);
-
-		// 최종 반환: DB에 있는 데이터 + 오늘자 데이터
 		List<Index> indexListInDB = indexRepository.findAllByTicker(ticker);
-		List<Index> todayList = indexListInAPI.stream()
+		List<Index> todayList = allIndexListInAPI.stream()
 			.filter(index -> index.getDate().isEqual(LocalDate.now()))
 			.toList();
 
@@ -76,18 +51,71 @@ public class IndexService {
 			.toList();
 	}
 
+	private List<Index> fetchAllIndexDataUntilToday(String ticker, String code, String fromDate) {
+		List<Index> accumulated = new ArrayList<>();
+		boolean hasTodayData = false;
+		String currentFromDate = fromDate;
+		Double previousPrice = null;
+
+		while (!hasTodayData) {
+			MarketPriceRes indexData = fetchIndexDataFromAPI(ticker, code, currentFromDate);
+
+			List<MarketPriceDetailedInfoRes> sorted = indexData.output2().stream()
+				.filter(d -> d.stckBsopDate() != null && !d.stckBsopDate().isBlank())
+				.sorted(Comparator.comparing(d -> DateUtils.parse(d.stckBsopDate())))
+				.toList();
+
+			if (sorted.isEmpty()) break;
+
+			List<Index> indexes = new ArrayList<>();
+			for (MarketPriceDetailedInfoRes data : sorted) {
+				LocalDate date = DateUtils.parse(data.stckBsopDate());
+				Double price = Double.valueOf(data.ovrsNmixPrpr());
+				Double rate = (previousPrice == null) ? 0.0 : ((price - previousPrice) / previousPrice) * 100.0;
+
+				indexes.add(Index.builder()
+					.ticker(ticker)
+					.date(date)
+					.price(price)
+					.rate(rate)
+					.build());
+
+				previousPrice = price;
+			}
+
+			accumulated.addAll(indexes);
+
+			if (indexes.stream().anyMatch(i -> i.getDate().isEqual(LocalDate.now()))) {
+				break;
+			}
+
+			LocalDate lastDate = indexes.get(indexes.size() - 1).getDate();
+			currentFromDate = DateUtils.format(lastDate.plusDays(1));
+
+			try {
+				Thread.sleep(100); // 0.1초 대기
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new RuntimeException("Thread sleep interrupted", e);
+			}
+		}
+
+		return accumulated;
+	}
+
 	private String getLatestStoredDate(String ticker) {
 		return indexRepository.findTopByTickerOrderByDateDesc(ticker)
 			.map(data -> DateUtils.format(data.getDate()))
-			.orElse(DateUtils.format(LocalDate.of(2000, 1, 1)));
+			.orElse(DateUtils.format(LocalDate.of(2008, 1, 2)));
 	}
 
 	private MarketPriceRes fetchIndexDataFromAPI(String ticker, String code, String startingDate) {
+		LocalDate endDate = DateUtils.parse(startingDate).plusDays(100);
 		Map<String, String> params = Map.of(
 			"FID_COND_MRKT_DIV_CODE", code,
 			"FID_INPUT_ISCD", ticker,
 			"FID_INPUT_DATE_1", startingDate,
-			"FID_INPUT_DATE_2", DateUtils.nowInYYYYMMDD(),
+			"FID_INPUT_DATE_2", DateUtils.format(endDate),
 			"FID_PERIOD_DIV_CODE", "D"
 		);
 		ResponseEntity<MarketPriceRes> response = apiUtils.getRequest(
@@ -96,6 +124,7 @@ public class IndexService {
 			params,
 			MarketPriceRes.class
 		);
+		log.info(String.valueOf(response.getHeaders()));
 		return response.getBody();
 	}
 
