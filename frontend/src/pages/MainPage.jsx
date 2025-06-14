@@ -1,9 +1,10 @@
-import React, {useEffect, useState} from "react";
+import React, { useEffect, useState } from "react";
 import SideNav from "../components/SideNav";
 import Navbar from "../components/Navbar";
 import Card from "../components/Card";
 import DetailedCard from "../components/DetailedCard";
 import axios from "axios";
+import LineChart from "../components/LineChart";
 
 const MainPage = () => {
   const [cardData, setCardData] = useState([]);
@@ -17,7 +18,7 @@ const MainPage = () => {
         setLoading(true); // 로딩 시작
         const [cardResponse, lineResponse, pieResponse] = await Promise.all([
           axios.get("http://localhost:8080/index"),
-          axios.get("http://localhost:8080/nasdaq"),
+          axios.get("http://localhost:8080/index/COMP"),
           axios.get("http://localhost:8080/account"),
         ]);
 
@@ -34,6 +35,15 @@ const MainPage = () => {
 
     fetchData();
   }, []);
+
+  const handleCardClick = async (ticker) => {
+    try {
+      const res = await axios.get(`http://localhost:8080/index/${ticker}`);
+      setLineData(res.data);
+    } catch (error) {
+      console.error("Error fetching detailed line data:", error);
+    }
+  };
 
   if (loading) {
     return (
@@ -57,11 +67,11 @@ const MainPage = () => {
                 index={data.ticker}
                 rate={data.rate}
                 value={data.price}
+                onClick={() => handleCardClick(data.ticker)}
               />
             ))}
           </div>
           <DetailedCard row={1} data1={lineData} data2={pieData} />
-          {/*<DetailedCard row={2} />*/}
         </div>
       </main>
     </div>

@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.billionaire.domain.index.dto.IndexSummaryRes;
@@ -44,8 +46,20 @@ public class IndexController {
 			.toList();
 	}
 
-	@GetMapping("/nasdaq")
-	public List<Index> outputNasdaqData() {
-		return indexService.getIndexData("COMP", "N");
+	@GetMapping("/index/{ticker}")
+	public List<Index> getNasdaqData(@PathVariable String ticker) {
+		if (ticker.equals("COMP")) {
+			return indexService.getIndexData("COMP", "N");
+		}
+		if (ticker.equals(".DJI")) {
+			return indexService.getIndexData(".DJI", "N");
+		}
+		if (ticker.equals("SPX")) {
+			return indexService.getIndexData("SPX", "N");
+		}
+		if (ticker.equals("FX@KRW")) {
+			return indexService.getIndexData("FX@KRW", "X");
+		}
+		throw new IllegalArgumentException("Unknown ticker: " + ticker);
 	}
 }

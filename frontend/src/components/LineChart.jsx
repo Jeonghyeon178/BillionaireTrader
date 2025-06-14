@@ -5,8 +5,7 @@ const LineChart = ({ data }) => {
   // output2가 정의되지 않았을 때 기본값을 빈 배열로 설정
   const formattedData = (data || []).map((item) => ({
     x: new Date(
-      item.date?.replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3") ||
-        Date.now()
+      item.date?.replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3") || Date.now()
     ),
     y: item.price || 0, // 값이 없으면 기본값 0
   }));
@@ -39,7 +38,7 @@ const LineChart = ({ data }) => {
         size: 0,
       },
       title: {
-        text: "Stock Price Movement",
+        text: "Price Movement",
         align: "left",
       },
       fill: {
