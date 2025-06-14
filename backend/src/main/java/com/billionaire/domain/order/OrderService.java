@@ -42,7 +42,7 @@ public class OrderService {
 		);
 
 		ResponseEntity<String> response = apiUtils.getRequest(
-			tokenUtils.createAuthorizationBody(apiCode),
+			tokenUtils.createAuthorizationHeaders(apiCode),
 			URL,
 			params,
 			String.class

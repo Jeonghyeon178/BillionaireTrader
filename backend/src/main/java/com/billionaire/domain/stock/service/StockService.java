@@ -1,6 +1,7 @@
 package com.billionaire.domain.stock.service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -36,29 +37,14 @@ public class StockService {
 
 	public List<Stock> getStockData(String ticker) {
 		String startingDate = getLatestStoredDate(ticker);
-		MarketPriceRes stockData = fetchStockDataFromAPI(ticker, startingDate);
-
-		// 날짜 정렬 보장
-		List<MarketPriceDetailedInfoRes> sorted = stockData.output2().stream()
-			.filter(d -> d.stckBsopDate() != null && !d.stckBsopDate().isBlank())  // null, 빈값 방지
-			.sorted(Comparator.comparing(d -> DateUtils.parse(d.stckBsopDate())))
-			.toList();
-
-		// API 데이터 → 엔티티 변환
-		List<Stock> stockListInAPI = sorted.stream()
-			.map(data -> Stock.builder()
-				.ticker(ticker)
-				.date(DateUtils.parse(data.stckBsopDate()))
-				.price(Double.valueOf(data.ovrsNmixPrpr()))
-				.build())
-			.toList();
+		List<Stock> allStockListInAPI = fetchAllStockDataUntilToday(ticker, startingDate);
 
 		// 오늘 제외하고 저장 + 중복 방지
-		saveIfNotExists(ticker, stockListInAPI);
+		saveIfNotExists(ticker, allStockListInAPI);
 
 		// DB 데이터 + 오늘 데이터 결합
 		List<Stock> stockListInDB = stockRepository.findAllByTicker(ticker);
-		List<Stock> todayList = stockListInAPI.stream()
+		List<Stock> todayList = allStockListInAPI.stream()
 			.filter(stock -> stock.getDate().isEqual(LocalDate.now()))
 			.toList();
 
@@ -67,32 +53,76 @@ public class StockService {
 			.toList();
 	}
 
+	private List<Stock> fetchAllStockDataUntilToday(String ticker, String fromDate) {
+		List<Stock> accumulated = new ArrayList<>();
+		boolean hasTodayData = false;
+		String currentFromDate = fromDate;
+
+		while (!hasTodayData) {
+			MarketPriceRes stockData = fetchStockDataFromAPI(ticker, currentFromDate);
+
+			List<MarketPriceDetailedInfoRes> sorted = stockData.output2().stream()
+				.filter(d -> d.stckBsopDate() != null && !d.stckBsopDate().isBlank())
+				.sorted(Comparator.comparing(d -> DateUtils.parse(d.stckBsopDate())))
+				.toList();
+
+			if (sorted.isEmpty()) break;
+
+			List<Stock> stocks = sorted.stream()
+				.map(data -> Stock.builder()
+					.ticker(ticker)
+					.date(DateUtils.parse(data.stckBsopDate()))
+					.price(Double.valueOf(data.ovrsNmixPrpr()))
+					.build())
+				.toList();
+
+			accumulated.addAll(stocks);
+
+			if (stocks.stream().anyMatch(s -> s.getDate().isEqual(LocalDate.now()))) {
+				hasTodayData = true;
+				break;
+			}
+
+			// 다음 요청을 위해 마지막 날짜 다음 날부터 다시 요청
+			LocalDate lastDate = stocks.get(stocks.size() - 1).getDate();
+			currentFromDate = DateUtils.format(lastDate.plusDays(1));
+
+			// 초당 10회 제한 대응: 0.1초 대기
+			try {
+				Thread.sleep(100); // 100ms 대기 → 초당 최대 10회 호출
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new RuntimeException("Thread sleep interrupted", e);
+			}
+		}
+
+		return accumulated;
+	}
+
 	private String getLatestStoredDate(String ticker) {
 		return stockRepository.findTopByTickerOrderByDateDesc(ticker)
 			.map(stock -> DateUtils.format(stock.getDate()))
-			.orElse(DateUtils.format(LocalDate.of(2024, 1, 2)));
+			.orElse(DateUtils.format(LocalDate.of(2008, 1, 2)));
 	}
 
 	private MarketPriceRes fetchStockDataFromAPI(String ticker, String startingDate) {
+		LocalDate endDate = DateUtils.parse(startingDate).plusDays(100);
+
 		Map<String, String> params = Map.of(
 			"FID_COND_MRKT_DIV_CODE", "N",
 			"FID_INPUT_ISCD", ticker.toUpperCase(),
 			"FID_INPUT_DATE_1", startingDate,
-			"FID_INPUT_DATE_2", DateUtils.nowInYYYYMMDD(),
-			"FID_PERIOD_DIV_CODE", "D",
-			"tr_id", ""
+			"FID_INPUT_DATE_2", DateUtils.format(endDate),
+			"FID_PERIOD_DIV_CODE", "D"
 		);
 
 		ResponseEntity<MarketPriceRes> response = apiUtils.getRequest(
-			tokenUtils.createAuthorizationBody("FHKST03030100"),
+			tokenUtils.createAuthorizationHeaders("FHKST03030100"),
 			URL,
 			params,
 			MarketPriceRes.class
 		);
 		log.info(String.valueOf(response.getHeaders()));
-		// TODO
-		// if (response.getHeaders())
-
 		return response.getBody();
 	}
 

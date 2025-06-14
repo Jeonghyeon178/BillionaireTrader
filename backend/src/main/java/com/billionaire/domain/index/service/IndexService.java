@@ -91,7 +91,7 @@ public class IndexService {
 			"FID_PERIOD_DIV_CODE", "D"
 		);
 		ResponseEntity<MarketPriceRes> response = apiUtils.getRequest(
-			tokenUtils.createAuthorizationBody("FHKST03030100"),
+			tokenUtils.createAuthorizationHeaders("FHKST03030100"),
 			URL,
 			params,
 			MarketPriceRes.class

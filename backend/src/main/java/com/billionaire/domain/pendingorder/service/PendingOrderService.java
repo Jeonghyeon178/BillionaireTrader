@@ -37,7 +37,7 @@ public class PendingOrderService {
 			"CTX_AREA_NK200", ""
 		);
 		ResponseEntity<InquireNccsRes> response = apiUtils.getRequest(
-			tokenUtils.createAuthorizationBody("TTTS3018R"),
+			tokenUtils.createAuthorizationHeaders("TTTS3018R"),
 			url,
 			params,
 			InquireNccsRes.class

@@ -35,8 +35,6 @@ public class AccountService {
 
 	public AccountBalanceDto getAccountBalance() {
 
-		tokenService.validateOrRefreshToken();
-
 		StockBalanceRes stockBalance = getStockBalance();
 		CashBalanceRes cashBalance = getCashBalance();
 
@@ -51,7 +49,7 @@ public class AccountService {
 
 		// 해외 주식 잔고 조회
 		ResponseEntity<StockBalanceRes> response = apiUtils.getRequest(
-			tokenUtils.createAuthorizationBody("TTTS3012R"),
+			tokenUtils.createAuthorizationHeaders("TTTS3012R"),
 			"https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/inquire-balance",
 			params,
 			StockBalanceRes.class
@@ -69,7 +67,7 @@ public class AccountService {
 
 		// 해외 증거금(현금 잔고) 조회
 		ResponseEntity<CashBalanceRes> response = apiUtils.getRequest(
-			tokenUtils.createAuthorizationBody("TTTC2101R", "P"),
+			tokenUtils.createAuthorizationHeaders("TTTC2101R", "P"),
 			"https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/foreign-margin",
 			params,
 			CashBalanceRes.class

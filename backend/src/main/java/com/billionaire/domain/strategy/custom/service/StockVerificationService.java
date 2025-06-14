@@ -33,7 +33,7 @@ public class StockVerificationService {
 		);
 
 		ResponseEntity<VerifiedDataRes> response = apiUtils.getRequest(
-			tokenUtils.createAuthorizationBody("HHDFS76410000"),
+			tokenUtils.createAuthorizationHeaders("HHDFS76410000"),
 			url,
 			params,
 			VerifiedDataRes.class

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import com.billionaire.domain.account.entity.Token;
 import com.billionaire.domain.token.repository.TokenRepository;
+import com.billionaire.domain.token.service.TokenService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,35 +18,35 @@ import lombok.RequiredArgsConstructor;
 public class TokenUtils {
 
 	@Value("${ks.app-key}")
-	private String APP_KEY;
-	@Value("${ks.app-secret}")
-	private String APP_SECRET;
+	private String appKey;
 
+	@Value("${ks.app-secret}")
+	private String appSecret;
+
+	private final TokenService tokenService;
 	private final TokenRepository tokenRepository;
 
 	public Optional<Token> getLatestToken() {
 		return tokenRepository.findTopByOrderByIdDesc();
 	}
 
-	public HttpHeaders createAuthorizationBody(String trId) {
-		Optional<Token> token = getLatestToken();
-		HttpHeaders headers = new HttpHeaders();
-		token.ifPresent(t -> headers.set("authorization", "Bearer " + t.getAccessToken()));
-		headers.set("appkey", APP_KEY);
-		headers.set("appsecret", APP_SECRET);
-		headers.set("tr_id", trId);
-		headers.setContentType(MediaType.APPLICATION_JSON);
-		return headers;
+	public HttpHeaders createAuthorizationHeaders(String trId) {
+		return createAuthorizationHeaders(trId, null);
 	}
 
-	public HttpHeaders createAuthorizationBody(String trId, String clientType) {
-		Optional<Token> token = getLatestToken();
+	public HttpHeaders createAuthorizationHeaders(String trId, String clientType) {
+		tokenService.validateOrRefreshToken();
+
+		Optional<Token> tokenOpt = getLatestToken();
 		HttpHeaders headers = new HttpHeaders();
-		token.ifPresent(t -> headers.set("authorization", "Bearer " + t.getAccessToken()));
-		headers.set("appkey", APP_KEY);
-		headers.set("appsecret", APP_SECRET);
+
+		tokenOpt.ifPresent(token -> headers.set("authorization", "Bearer " + token.getAccessToken()));
+		headers.set("appkey", appKey);
+		headers.set("appsecret", appSecret);
 		headers.set("tr_id", trId);
-		headers.set("custtype", clientType);
+		if (clientType != null && !clientType.isBlank()) {
+			headers.set("custtype", clientType);
+		}
 		headers.setContentType(MediaType.APPLICATION_JSON);
 		return headers;
 	}
