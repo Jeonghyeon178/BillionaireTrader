@@ -7,5 +7,34 @@ services:
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: db
+      POSTGRES_DB: postgres-db
 
+  backend:
+    build:
+      context: ./backend
+    container_name: backend-app
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend-build
+    command: sh -c "npm install && npm run build"
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+    container_name: nginx-server
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend

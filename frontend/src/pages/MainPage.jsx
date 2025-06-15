@@ -17,9 +17,9 @@ const MainPage = () => {
       try {
         setLoading(true); // 로딩 시작
         const [cardResponse, lineResponse, pieResponse] = await Promise.all([
-          axios.get("http://localhost:8080/index"),
-          axios.get("http://localhost:8080/index/COMP"),
-          axios.get("http://localhost:8080/account"),
+          axios.get("/api/index"),
+          axios.get("/api/index/COMP"),
+          axios.get("/api/account"),
         ]);
 
         // 모든 응답이 완료된 후 상태 업데이트
@@ -38,7 +38,7 @@ const MainPage = () => {
 
   const handleCardClick = async (ticker) => {
     try {
-      const res = await axios.get(`http://localhost:8080/index/${ticker}`);
+      const res = await axios.get(`/api/index/${ticker}`);
       setLineData(res.data);
     } catch (error) {
       console.error("Error fetching detailed line data:", error);

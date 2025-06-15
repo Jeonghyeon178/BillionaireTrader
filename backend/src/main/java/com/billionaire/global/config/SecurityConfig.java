@@ -37,6 +37,8 @@ public class SecurityConfig {
 	CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
 		configuration.setAllowedOrigins(List.of(
+			"http://localhost",           // Nginx 도커에서 제공될 경우
+			"http://localhost:80",        // Nginx 도커 환경에서 프론트 기본 포트
 			"http://localhost:3000",
 			"https://jiangxy.github.io",
 			"http://localhost:5173"

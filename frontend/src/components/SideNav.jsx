@@ -13,8 +13,8 @@ const SideNav = () => {
           href="https://demos.creative-tim.com/argon-dashboard-tailwind/pages/dashboard.html"
           target="_blank"
         >
-          <span class="ml-1 font-semibold transition-all duration-200 ease-nav-brand">
-            SideNavBar
+          <span className="text-2xl block text-center font-semibold transition-all duration-200 ease-nav-brand">
+            BillionaireTrader
           </span>
         </a>
       </div>
@@ -23,11 +23,11 @@ const SideNav = () => {
 
       <div class="items-center block w-auto max-h-screen overflow-auto h-sidenav grow basis-full">
         <ul class="flex flex-col pl-0 mb-0">
-          <SideNavButton content="dashboard" />
-          <SideNavButton content="dashboard" />
-          <SideNavButton content="dashboard" />
-          <SideNavButton content="dashboard" />
-          <SideNavButton content="dashboard" />
+          <SideNavButton content="Custom" />
+          <SideNavButton content="Strategy 1" />
+          <SideNavButton content="Strategy 2" />
+          <SideNavButton content="Strategy 2" />
+          <SideNavButton content="Strategy 4" />
         </ul>
       </div>
     </div>
