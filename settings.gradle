@@ -1,0 +1,2 @@
+rootProject.name = 'BillionaireTrader'
+include 'backend', 'frontend'
