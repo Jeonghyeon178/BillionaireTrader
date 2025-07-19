@@ -40,3 +40,10 @@ node_modules/
 dist/
 
 .env
+
+.claude/
+.cursor/
+.taskmaster/
+CLAUDE.md
+
+.env.example
