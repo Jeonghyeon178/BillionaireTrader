@@ -7,5 +7,8 @@ import lombok.Builder;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 @Builder
-public record AccountRes(StockBalanceRes stockBalanceRes, CashBalanceRes cashBalanceRes) {
+public record AccountRes(
+	StockBalanceRes stockBalanceRes,
+	CashBalanceRes cashBalanceRes
+) {
 }

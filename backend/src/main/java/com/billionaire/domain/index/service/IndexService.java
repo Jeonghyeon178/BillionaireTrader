@@ -22,7 +22,6 @@ import com.billionaire.global.util.ApiUtils;
 import com.billionaire.global.util.DateUtils;
 import com.billionaire.global.util.TokenUtils;
 
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

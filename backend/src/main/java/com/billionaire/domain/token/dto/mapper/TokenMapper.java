@@ -2,7 +2,7 @@ package com.billionaire.domain.token.dto.mapper;
 
 import org.springframework.stereotype.Component;
 
-import com.billionaire.domain.account.dto.response.TokenRes;
+import com.billionaire.domain.token.dto.response.TokenRes;
 import com.billionaire.domain.token.entity.Token;
 
 @Component

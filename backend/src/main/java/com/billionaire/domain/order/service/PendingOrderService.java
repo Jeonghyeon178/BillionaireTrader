@@ -42,7 +42,6 @@ public class PendingOrderService {
 			params,
 			InquireNccsRes.class
 		);
-		// TODO dto 파일 수정
 		boolean hasUnsettled = Objects.requireNonNull(response.getBody()).output().stream()
 			.anyMatch(inquireNccsOutputRes -> !inquireNccsOutputRes.nccsQty().equals("0"));
 		return !hasUnsettled; // 미체결 없음

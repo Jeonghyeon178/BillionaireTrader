@@ -20,7 +20,6 @@ public class AccountController {
 	public AccountRes requestAccount() {
 		AccountBalanceDto accountBalance = accountService.getAccountBalance();
 
-		// list로 보내면 형태가 이상해짐
 		return AccountRes.builder()
 			.stockBalanceRes(accountBalance.stockBalanceRes())
 			.cashBalanceRes(accountBalance.cashBalanceRes())

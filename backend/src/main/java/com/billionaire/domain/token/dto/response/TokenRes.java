@@ -1,4 +1,4 @@
-package com.billionaire.domain.account.dto.response;
+package com.billionaire.domain.token.dto.response;
 
 import java.time.LocalDateTime;
 

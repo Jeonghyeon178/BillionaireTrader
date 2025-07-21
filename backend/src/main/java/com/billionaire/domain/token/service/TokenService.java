@@ -1,19 +1,15 @@
 package com.billionaire.domain.token.service;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-import com.billionaire.domain.account.dto.response.TokenRes;
+import com.billionaire.domain.token.dto.response.TokenRes;
 import com.billionaire.domain.token.entity.Token;
 import com.billionaire.domain.token.dto.mapper.TokenMapper;
 import com.billionaire.domain.token.exception.TokenCreationFailedException;
@@ -21,7 +17,6 @@ import com.billionaire.domain.token.exception.TokenNotFoundException;
 import com.billionaire.domain.token.repository.TokenRepository;
 import com.billionaire.global.util.ApiUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
