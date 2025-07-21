@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import com.billionaire.global.dto.MarketPriceDetailedInfoRes;
 import com.billionaire.global.dto.MarketPriceRes;
+import com.billionaire.domain.index.dto.response.IndexRes;
 import com.billionaire.domain.index.entity.Index;
 import com.billionaire.domain.index.exception.IndexDataFetchFailedException;
 import com.billionaire.domain.index.repository.IndexRepository;
@@ -37,7 +38,7 @@ public class IndexService {
 	private final TokenUtils tokenUtils;
 
 	@Transactional
-	public List<Index> getIndexData(String ticker, String code) {
+	public List<IndexRes> getIndexData(String ticker, String code) {
 		String startingDate = getLatestStoredDate(ticker);
 		List<Index> allIndexListInAPI = fetchAllIndexDataUntilToday(ticker, code, startingDate);
 
@@ -50,6 +51,7 @@ public class IndexService {
 
 		return Stream.concat(indexListInDB.stream(), todayList.stream())
 			.distinct()
+			.map(this::convertToIndexRes)
 			.toList();
 	}
 
@@ -190,5 +192,14 @@ public class IndexService {
 
 			indexRepository.saveAll(filteredToSave);
 		}
+	}
+
+	private IndexRes convertToIndexRes(Index index) {
+		return IndexRes.builder()
+			.ticker(index.getTicker())
+			.date(index.getDate())
+			.price(index.getPrice())
+			.rate(index.getRate())
+			.build();
 	}
 }

@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.billionaire.domain.index.entity.Index;
+import com.billionaire.domain.index.dto.response.IndexRes;
 import com.billionaire.domain.index.service.IndexService;
 import com.billionaire.domain.index.type.MarketIndex;
 
@@ -23,7 +23,7 @@ public class IndexController {
 	private final IndexService indexService;
 
 	@GetMapping("/indices/{name}")
-	public List<Index> searchIndex(
+	public List<IndexRes> searchIndex(
 		@PathVariable
 		@NotBlank(message = "지수 이름은 필수입니다")
 		String name) {

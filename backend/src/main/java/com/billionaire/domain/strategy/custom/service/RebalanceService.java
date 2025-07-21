@@ -11,7 +11,7 @@ import com.billionaire.domain.order.service.OrderService;
 import com.billionaire.domain.order.dto.internal.OrderDto;
 import com.billionaire.domain.order.type.OrderType;
 import com.billionaire.domain.order.service.PendingOrderService;
-import com.billionaire.domain.stock.entity.Stock;
+import com.billionaire.domain.stock.dto.response.StockRes;
 import com.billionaire.domain.stock.service.StockService;
 import com.billionaire.domain.strategy.custom.dto.internal.StockInfoDto;
 import com.billionaire.domain.strategy.custom.exception.HighestPriceNotFoundException;
@@ -31,33 +31,33 @@ public class RebalanceService {
 	private final OrderTriggerService orderTriggerService;
 	private final PendingOrderService pendingOrderService;
 	private final StockService stockService;
-	
+
 	// 주식 분석 결과를 담는 내부 클래스
 	private static class StockAnalysis {
-		final Stock highest;
-		final Stock lowestAfterHigh;
+		final StockRes highest;
+		final StockRes lowestAfterHigh;
 		final double highestPrice;
 		final double lowestPriceAfterHighestPrice;
 		final double currentPrice;
-		
-		StockAnalysis(Stock highest, Stock lowestAfterHigh, double currentPrice) {
+
+		StockAnalysis(StockRes highest, StockRes lowestAfterHigh, double currentPrice) {
 			this.highest = highest;
 			this.lowestAfterHigh = lowestAfterHigh;
-			this.highestPrice = highest.getPrice();
-			this.lowestPriceAfterHighestPrice = lowestAfterHigh.getPrice();
+			this.highestPrice = highest.price();
+			this.lowestPriceAfterHighestPrice = lowestAfterHigh.price();
 			this.currentPrice = currentPrice;
 		}
 	}
-	
+
 	// 처리 데이터를 담는 내부 클래스
 	private static class ProcessingData {
 		final StockInfoDto stockInfoDto;
 		final DetailedStockBalanceData1Res matched;
 		final double ownAmount;
 		final StockAnalysis analysis;
-		
-		ProcessingData(StockInfoDto stockInfoDto, DetailedStockBalanceData1Res matched, 
-					   double ownAmount, StockAnalysis analysis) {
+
+		ProcessingData(StockInfoDto stockInfoDto, DetailedStockBalanceData1Res matched,
+			double ownAmount, StockAnalysis analysis) {
 			this.stockInfoDto = stockInfoDto;
 			this.matched = matched;
 			this.ownAmount = ownAmount;
@@ -70,14 +70,13 @@ public class RebalanceService {
 
 		flushNonStrategyStocks(ownStocks, stockInfoDtoList);
 		rebalanceForSelling(trigger, ownStocks, stockInfoDtoList);
-		
+
 		boolean sellOrdersDone = waitUntilSellOrdersFilled();
 		if (sellOrdersDone) {
 			rebalanceForBuying(trigger, ownStocks, stockInfoDtoList);
 		}
 
 	}
-
 
 	private void flushNonStrategyStocks(List<DetailedStockBalanceData1Res> stocks, List<StockInfoDto> targetStocks) {
 		Iterator<DetailedStockBalanceData1Res> iterator = stocks.iterator();
@@ -151,43 +150,42 @@ public class RebalanceService {
 			}
 		}
 	}
-	
+
 	// 주식 분석 메서드
 	private StockAnalysis analyzeStock(String ticker) {
-		List<Stock> data = stockService.getStockData(ticker);
-		
-		Stock highest = data.stream()
-			.max(Comparator.comparing(Stock::getPrice))
+		List<StockRes> data = stockService.getStockData(ticker);
+
+		StockRes highest = data.stream()
+			.max(Comparator.comparing(StockRes::price))
 			.orElseThrow(() -> new HighestPriceNotFoundException(ticker));
 
-		Stock lowestAfterHigh = data.stream()
-			.filter(s -> s.getDate().isAfter(highest.getDate()))
-			.min(Comparator.comparing(Stock::getPrice))
+		StockRes lowestAfterHigh = data.stream()
+			.filter(s -> s.date().isAfter(highest.date()))
+			.min(Comparator.comparing(StockRes::price))
 			.orElseThrow(() -> new LowestPriceNotFoundException(ticker));
 
-		double currentPrice = data.get(data.size() - 1).getPrice();
-		
+		double currentPrice = data.get(data.size() - 1).price();
+
 		return new StockAnalysis(highest, lowestAfterHigh, currentPrice);
 	}
-	
+
 	// 처리 데이터 준비 메서드
-	private ProcessingData prepareProcessingData(StockInfoDto stockInfoDto, 
-												 List<DetailedStockBalanceData1Res> ownStocks, 
-												 StockAnalysis analysis) {
+	private ProcessingData prepareProcessingData(StockInfoDto stockInfoDto,
+		List<DetailedStockBalanceData1Res> ownStocks,
+		StockAnalysis analysis) {
 		DetailedStockBalanceData1Res matched = ownStocks.stream()
 			.filter(own -> own.ovrsPdno().equals(stockInfoDto.ticker()))
 			.findFirst()
 			.orElseThrow(() -> new HoldingStockNotFoundException(stockInfoDto.ticker()));
 
 		double ownAmount = Double.parseDouble(matched.ovrsStckEvluAmt());
-		
+
 		return new ProcessingData(stockInfoDto, matched, ownAmount, analysis);
 	}
-	
+
 	// 일반 상황에서의 매도 처리
 	private void processNormalSelling(ProcessingData data) {
 		StockAnalysis analysis = data.analysis;
-		
 
 		if (analysis.lowestPriceAfterHighestPrice * 1.1 < analysis.currentPrice) {
 			double result = data.stockInfoDto.amount() - data.ownAmount;
@@ -201,17 +199,16 @@ public class RebalanceService {
 				);
 			}
 		}
-		
 
 		if (analysis.currentPrice < analysis.highestPrice) {
 			processDropBasedSelling(data, TradingConstants.Rebalancing.DROP_UNIT_5_PERCENT);
 		}
 	}
-	
+
 	// 패닉 상황에서의 매도 처리
 	private void processPanicSelling(ProcessingData data) {
 		StockAnalysis analysis = data.analysis;
-		
+
 		if (analysis.currentPrice < analysis.highestPrice) {
 			double totalDropPercentage = (analysis.highestPrice - analysis.currentPrice) / analysis.highestPrice;
 			int dropCount = (int)(totalDropPercentage / TradingConstants.Rebalancing.RISE_UNIT_2_5_PERCENT);
@@ -233,7 +230,7 @@ public class RebalanceService {
 			}
 		}
 	}
-	
+
 	// 하락률 기반 매도 처리
 	private void processDropBasedSelling(ProcessingData data, double dropUnit) {
 		StockAnalysis analysis = data.analysis;
@@ -255,11 +252,10 @@ public class RebalanceService {
 			}
 		}
 	}
-	
+
 	// 일반 상황에서의 매수 처리
 	private void processNormalBuying(ProcessingData data) {
 		StockAnalysis analysis = data.analysis;
-		
 
 		if (analysis.lowestPriceAfterHighestPrice * 1.1 < analysis.currentPrice) {
 			double result = data.stockInfoDto.amount() - data.ownAmount;
@@ -273,17 +269,16 @@ public class RebalanceService {
 				);
 			}
 		}
-		
 
 		if (analysis.currentPrice < analysis.highestPrice) {
 			processDropBasedBuying(data);
 		}
 	}
-	
+
 	// 패닉 상황에서의 매수 처리
 	private void processPanicBuying(ProcessingData data) {
 		StockAnalysis analysis = data.analysis;
-		
+
 		if (analysis.currentPrice < analysis.highestPrice) {
 			double totalDropPercentage = (analysis.highestPrice - analysis.currentPrice) / analysis.highestPrice;
 			int dropCount = (int)(totalDropPercentage / TradingConstants.Rebalancing.RISE_UNIT_2_5_PERCENT);
@@ -305,7 +300,7 @@ public class RebalanceService {
 			}
 		}
 	}
-	
+
 	// 하락률 기반 매수 처리
 	private void processDropBasedBuying(ProcessingData data) {
 		StockAnalysis analysis = data.analysis;

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import com.billionaire.global.dto.MarketPriceDetailedInfoRes;
 import com.billionaire.global.dto.MarketPriceRes;
+import com.billionaire.domain.stock.dto.response.StockRes;
 import com.billionaire.domain.stock.entity.Stock;
 import com.billionaire.domain.stock.exception.StockDataFetchFailedException;
 import com.billionaire.domain.stock.repository.StockRepository;
@@ -37,7 +38,7 @@ public class StockService {
 	private final TokenUtils tokenUtils;
 
 	@Transactional
-	public List<Stock> getStockData(String ticker) {
+	public List<StockRes> getStockData(String ticker) {
 		String startingDate = getLatestStoredDate(ticker);
 		List<Stock> allStockListInAPI = fetchAllStockDataUntilToday(ticker, startingDate);
 
@@ -50,6 +51,7 @@ public class StockService {
 
 		return Stream.concat(stockListInDB.stream(), todayList.stream())
 			.distinct()
+			.map(this::convertToStockRes)
 			.toList();
 	}
 
@@ -168,5 +170,13 @@ public class StockService {
 
 			stockRepository.saveAll(filteredToSave);
 		}
+	}
+
+	private StockRes convertToStockRes(Stock stock) {
+		return StockRes.builder()
+			.ticker(stock.getTicker())
+			.date(stock.getDate())
+			.price(stock.getPrice())
+			.build();
 	}
 }
