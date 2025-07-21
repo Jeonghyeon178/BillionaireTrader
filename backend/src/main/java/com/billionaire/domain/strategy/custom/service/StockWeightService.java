@@ -5,8 +5,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.billionaire.domain.strategy.custom.dto.StockInfoDto;
-import com.billionaire.domain.strategy.custom.dto.VerifiedDetailedData2Res;
+import com.billionaire.domain.strategy.custom.dto.internal.StockInfoDto;
+import com.billionaire.domain.strategy.custom.dto.response.VerifiedDetailedData2Res;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

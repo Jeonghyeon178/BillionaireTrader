@@ -4,7 +4,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.billionaire.domain.account.dto.common.AccountBalanceDto;
+import com.billionaire.domain.account.dto.internal.AccountBalanceDto;
 import com.billionaire.domain.account.dto.response.AccountRes;
 import com.billionaire.domain.account.service.AccountService;
 

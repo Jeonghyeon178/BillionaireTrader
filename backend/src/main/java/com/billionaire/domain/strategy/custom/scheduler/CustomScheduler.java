@@ -5,15 +5,16 @@ import java.util.List;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-import com.billionaire.domain.account.dto.common.AccountBalanceDto;
+import com.billionaire.domain.account.dto.internal.AccountBalanceDto;
 import com.billionaire.domain.account.dto.response.CashBalanceRes;
 import com.billionaire.domain.account.dto.response.DetailedStockBalanceData1Res;
 import com.billionaire.domain.account.dto.response.StockBalanceRes;
 import com.billionaire.domain.account.service.AccountService;
-import com.billionaire.domain.strategy.custom.dto.StockInfoDto;
-import com.billionaire.domain.strategy.custom.dto.VerifiedDataRes;
-import com.billionaire.domain.strategy.custom.dto.VerifiedDetailedData2Res;
+import com.billionaire.domain.strategy.custom.dto.internal.StockInfoDto;
+import com.billionaire.domain.strategy.custom.dto.response.VerifiedDataRes;
+import com.billionaire.domain.strategy.custom.dto.response.VerifiedDetailedData2Res;
 import com.billionaire.domain.strategy.custom.service.MarketCapScraperService;
 import com.billionaire.domain.strategy.custom.service.RebalanceService;
 import com.billionaire.domain.strategy.custom.service.StockVerificationService;
@@ -51,7 +52,8 @@ public class CustomScheduler {
 	}
 
 	@Scheduled(cron = "0 55 4 * * MON-FRI")
-	private void execute() throws IOException {
+	@Transactional
+	protected void execute() throws IOException {
 		if (!enabled) {
 			log.info("⏸ 리밸런싱 스케줄러가 비활성화되어 실행되지 않음");
 			return;

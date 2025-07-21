@@ -7,8 +7,9 @@ import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import com.billionaire.domain.strategy.custom.dto.VerifiedDataRes;
-import com.billionaire.domain.strategy.custom.dto.VerifiedDetailedData2Res;
+import com.billionaire.domain.strategy.custom.dto.response.VerifiedDataRes;
+import com.billionaire.domain.strategy.custom.dto.response.VerifiedDetailedData2Res;
+import com.billionaire.global.constants.TradingConstants;
 import com.billionaire.global.util.ApiUtils;
 import com.billionaire.global.util.TokenUtils;
 
@@ -53,7 +54,7 @@ public class StockVerificationService {
 
 		for (VerifiedDetailedData2Res data : verifiedDetailedData2ResList) {
 			long marketCap = Long.parseLong(data.valx());
-			if (marketCap >= (long)(largestMarketCap * 0.9)) {
+			if (marketCap >= (long)(largestMarketCap * TradingConstants.Rebalancing.MARKET_CAP_THRESHOLD)) {
 				filteredData.add(data);
 			} else {
 				break;

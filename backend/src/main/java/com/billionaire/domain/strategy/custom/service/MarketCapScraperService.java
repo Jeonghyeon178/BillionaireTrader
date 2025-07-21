@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
@@ -38,13 +39,13 @@ public class MarketCapScraperService {
 			// 데이터를 리스트에 추가
 			Map<String, Object> marketCapData = Map.of(
 				"회사명", companyName,
-				"시가총액", marketCap,
+				"시가총액", Objects.requireNonNull(marketCap),
 				"시가총액_텍스트", marketCapText
 			);
 			marketCaps.add(marketCapData);
 		}
 		Long result = (Long)marketCaps.get(0).get("시가총액");
-		log.info("result = " + result);
+		log.info("result = {}", result);
 
 		return result;
 	}

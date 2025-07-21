@@ -7,7 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
-import com.billionaire.domain.account.entity.Token;
+import com.billionaire.domain.token.entity.Token;
 import com.billionaire.domain.token.repository.TokenRepository;
 import com.billionaire.domain.token.service.TokenService;
 

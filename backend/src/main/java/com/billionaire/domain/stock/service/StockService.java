@@ -15,19 +15,20 @@ import org.springframework.stereotype.Service;
 import com.billionaire.global.dto.MarketPriceDetailedInfoRes;
 import com.billionaire.global.dto.MarketPriceRes;
 import com.billionaire.domain.stock.entity.Stock;
+import com.billionaire.domain.stock.exception.StockDataFetchFailedException;
 import com.billionaire.domain.stock.repository.StockRepository;
+import com.billionaire.global.constants.TradingConstants;
 import com.billionaire.global.util.ApiUtils;
 import com.billionaire.global.util.DateUtils;
 import com.billionaire.global.util.TokenUtils;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
 @Service
-@Transactional
 public class StockService {
 	private static final String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-daily-chartprice";
 
@@ -35,15 +36,14 @@ public class StockService {
 	private final ApiUtils apiUtils;
 	private final TokenUtils tokenUtils;
 
+	@Transactional
 	public List<Stock> getStockData(String ticker) {
 		String startingDate = getLatestStoredDate(ticker);
 		List<Stock> allStockListInAPI = fetchAllStockDataUntilToday(ticker, startingDate);
 
-		// 오늘 제외하고 저장 + 중복 방지
 		saveIfNotExists(ticker, allStockListInAPI);
 
-		// DB 데이터 + 오늘 데이터 결합
-		List<Stock> stockListInDB = stockRepository.findAllByTicker(ticker);
+		List<Stock> stockListInDB = stockRepository.getStockData(ticker);
 		List<Stock> todayList = allStockListInAPI.stream()
 			.filter(stock -> stock.getDate().isEqual(LocalDate.now()))
 			.toList();
@@ -55,86 +55,118 @@ public class StockService {
 
 	private List<Stock> fetchAllStockDataUntilToday(String ticker, String fromDate) {
 		List<Stock> accumulated = new ArrayList<>();
-		boolean hasTodayData = false;
 		String currentFromDate = fromDate;
 
-		while (!hasTodayData) {
+		while (!hasTodayData(accumulated)) {
 			MarketPriceRes stockData = fetchStockDataFromAPI(ticker, currentFromDate);
+			List<MarketPriceDetailedInfoRes> sortedData = getSortedMarketData(stockData);
 
-			List<MarketPriceDetailedInfoRes> sorted = stockData.output2().stream()
-				.filter(d -> d.stckBsopDate() != null && !d.stckBsopDate().isBlank())
-				.sorted(Comparator.comparing(d -> DateUtils.parse(d.stckBsopDate())))
-				.toList();
-
-			if (sorted.isEmpty()) break;
-
-			List<Stock> stocks = sorted.stream()
-				.map(data -> Stock.builder()
-					.ticker(ticker)
-					.date(DateUtils.parse(data.stckBsopDate()))
-					.price(Double.valueOf(data.ovrsNmixPrpr()))
-					.build())
-				.toList();
-
-			accumulated.addAll(stocks);
-
-			if (stocks.stream().anyMatch(s -> s.getDate().isEqual(LocalDate.now()))) {
+			if (sortedData.isEmpty()) {
 				break;
 			}
 
-			// 다음 요청을 위해 마지막 날짜 다음 날부터 다시 요청
-			LocalDate lastDate = stocks.get(stocks.size() - 1).getDate();
-			currentFromDate = DateUtils.format(lastDate.plusDays(1));
+			List<Stock> convertedStocks = convertToStocks(ticker, sortedData);
+			accumulated.addAll(convertedStocks);
 
-			// 초당 10회 제한 대응: 0.1초 대기
-			try {
-				Thread.sleep(100); // 100ms 대기 → 초당 최대 10회 호출
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				throw new RuntimeException("Thread sleep interrupted", e);
-			}
+			currentFromDate = getNextFetchDate(convertedStocks);
+			waitForNextApiCall();
 		}
 
 		return accumulated;
 	}
 
+	private List<MarketPriceDetailedInfoRes> getSortedMarketData(MarketPriceRes stockData) {
+		return stockData.output2().stream()
+			.filter(d -> d.stckBsopDate() != null && !d.stckBsopDate().isBlank())
+			.sorted(Comparator.comparing(d -> DateUtils.parse(d.stckBsopDate())))
+			.toList();
+	}
+
+	private List<Stock> convertToStocks(String ticker, List<MarketPriceDetailedInfoRes> sortedData) {
+		return sortedData.stream()
+			.map(data -> Stock.builder()
+				.ticker(ticker)
+				.date(DateUtils.parse(data.stckBsopDate()))
+				.price(Double.valueOf(data.ovrsNmixPrpr()))
+				.build())
+			.toList();
+	}
+
+	private boolean hasTodayData(List<Stock> stocks) {
+		return stocks.stream().anyMatch(s -> s.getDate().isEqual(LocalDate.now()));
+	}
+
+	private String getNextFetchDate(List<Stock> stocks) {
+		LocalDate lastDate = stocks.get(stocks.size() - 1).getDate();
+		return DateUtils.format(lastDate.plusDays(1));
+	}
+
+	private void waitForNextApiCall() {
+		try {
+			Thread.sleep(TradingConstants.ApiCall.CALL_INTERVAL_MS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new StockDataFetchFailedException();
+		}
+	}
+
 	private String getLatestStoredDate(String ticker) {
-		return stockRepository.findTopByTickerOrderByDateDesc(ticker)
-			.map(stock -> DateUtils.format(stock.getDate()))
-			.orElse(DateUtils.format(LocalDate.of(2008, 1, 2)));
+		try {
+			Stock latestStock = stockRepository.getLatestStockData(ticker);
+			return DateUtils.format(latestStock.getDate());
+		} catch (Exception e) {
+			log.info("저장된 주식 데이터가 없습니다. 기본 시작 날짜를 사용합니다: {}", ticker);
+			return DateUtils.format(LocalDate.of(2008, 1, 2));
+		}
 	}
 
 	private MarketPriceRes fetchStockDataFromAPI(String ticker, String startingDate) {
-		LocalDate endDate = DateUtils.parse(startingDate).plusDays(100);
+		try {
+			LocalDate endDate = DateUtils.parse(startingDate).plusDays(100);
+			Map<String, String> params = Map.of(
+				"FID_COND_MRKT_DIV_CODE", "N",
+				"FID_INPUT_ISCD", ticker.toUpperCase(),
+				"FID_INPUT_DATE_1", startingDate,
+				"FID_INPUT_DATE_2", DateUtils.format(endDate),
+				"FID_PERIOD_DIV_CODE", "D"
+			);
+			ResponseEntity<MarketPriceRes> response = apiUtils.getRequest(
+				tokenUtils.createAuthorizationHeaders("FHKST03030100"),
+				URL,
+				params,
+				MarketPriceRes.class
+			);
 
-		Map<String, String> params = Map.of(
-			"FID_COND_MRKT_DIV_CODE", "N",
-			"FID_INPUT_ISCD", ticker.toUpperCase(),
-			"FID_INPUT_DATE_1", startingDate,
-			"FID_INPUT_DATE_2", DateUtils.format(endDate),
-			"FID_PERIOD_DIV_CODE", "D"
-		);
-
-		ResponseEntity<MarketPriceRes> response = apiUtils.getRequest(
-			tokenUtils.createAuthorizationHeaders("FHKST03030100"),
-			URL,
-			params,
-			MarketPriceRes.class
-		);
-		log.info(String.valueOf(response.getHeaders()));
-		return response.getBody();
+			
+			if (response.getBody() == null) {
+				throw new StockDataFetchFailedException();
+			}
+			
+			return response.getBody();
+		} catch (Exception e) {
+			throw new StockDataFetchFailedException();
+		}
 	}
 
 	private void saveIfNotExists(String ticker, List<Stock> stockListInAPI) {
-		Set<LocalDate> existingDates = stockRepository.findAllByTicker(ticker).stream()
-			.map(Stock::getDate)
-			.collect(Collectors.toSet());
+		try {
+			Set<LocalDate> existingDates = stockRepository.getStockData(ticker).stream()
+				.map(Stock::getDate)
+				.collect(Collectors.toSet());
 
-		List<Stock> filteredToSave = stockListInAPI.stream()
-			.filter(stock -> !stock.getDate().isEqual(LocalDate.now()))
-			.filter(stock -> !existingDates.contains(stock.getDate()))
-			.toList();
+			List<Stock> filteredToSave = stockListInAPI.stream()
+				.filter(stock -> !stock.getDate().isEqual(LocalDate.now()))
+				.filter(stock -> !existingDates.contains(stock.getDate()))
+				.toList();
 
-		stockRepository.saveAll(filteredToSave);
+			stockRepository.saveAll(filteredToSave);
+		} catch (Exception e) {
+			log.info("기존 데이터가 없습니다. 모든 데이터를 저장합니다: {}", ticker);
+			List<Stock> filteredToSave = stockListInAPI.stream()
+				.filter(stock -> !stock.getDate().isEqual(LocalDate.now()))
+				.toList();
+
+			stockRepository.saveAll(filteredToSave);
+		}
 	}
 }

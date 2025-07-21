@@ -21,4 +21,9 @@ public class ApiUtils {
 
 		return restTemplate.exchange(finalUrl, HttpMethod.GET, requestEntity, responseType);
 	}
+
+	public <T> ResponseEntity<T> postRequest(String url, HttpHeaders headers, Map<String, String> requestBody, Class<T> responseType) {
+		HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+		return restTemplate.exchange(url, HttpMethod.POST, requestEntity, responseType);
+	}
 }

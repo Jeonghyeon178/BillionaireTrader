@@ -7,18 +7,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import com.billionaire.domain.account.dto.common.AccountBalanceDto;
+import com.billionaire.domain.account.dto.internal.AccountBalanceDto;
 import com.billionaire.domain.account.dto.response.CashBalanceRes;
 import com.billionaire.domain.account.dto.response.StockBalanceRes;
-import com.billionaire.domain.token.service.TokenService;
+import com.billionaire.domain.account.exception.AccountNotFoundException;
 import com.billionaire.global.util.ApiUtils;
 import com.billionaire.global.util.TokenUtils;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -31,7 +29,6 @@ public class AccountService {
 
 	private final TokenUtils tokenUtils;
 	private final ApiUtils apiUtils;
-	private final TokenService tokenService;
 
 	public AccountBalanceDto getAccountBalance() {
 
@@ -45,42 +42,57 @@ public class AccountService {
 	}
 
 	private StockBalanceRes getStockBalance() {
-		Map<String, String> params = createStockBalanceParams();
+		try {
+			Map<String, String> params = createStockBalanceParams();
 
-		// 해외 주식 잔고 조회
-		ResponseEntity<StockBalanceRes> response = apiUtils.getRequest(
-			tokenUtils.createAuthorizationHeaders("TTTS3012R"),
-			"https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/inquire-balance",
-			params,
-			StockBalanceRes.class
-		);
+			// 해외 주식 잔고 조회
+			ResponseEntity<StockBalanceRes> response = apiUtils.getRequest(
+				tokenUtils.createAuthorizationHeaders("TTTS3012R"),
+				"https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/inquire-balance",
+				params,
+				StockBalanceRes.class
+			);
 
-		StockBalanceRes stockBalance = response.getBody();
+			if (response.getBody() == null) {
+				throw new AccountNotFoundException();
+			}
 
-		log.info("해외 주식 잔고 응답: {}", stockBalance);
-
-		return stockBalance;
+			return response.getBody();
+		} catch (Exception e) {
+			throw new AccountNotFoundException();
+		}
 	}
 
 	private CashBalanceRes getCashBalance() {
-		Map<String, String> params = createStockBalanceParams();
+		try {
+			Map<String, String> params = createStockBalanceParams();
 
-		// 해외 증거금(현금 잔고) 조회
-		ResponseEntity<CashBalanceRes> response = apiUtils.getRequest(
-			tokenUtils.createAuthorizationHeaders("TTTC2101R", "P"),
-			"https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/foreign-margin",
-			params,
-			CashBalanceRes.class
-		);
+			// 해외 증거금(현금 잔고) 조회
+			ResponseEntity<CashBalanceRes> response = apiUtils.getRequest(
+				tokenUtils.createAuthorizationHeaders("TTTC2101R", "P"),
+				"https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/foreign-margin",
+				params,
+				CashBalanceRes.class
+			);
 
-		CashBalanceRes cashBalance = response.getBody();
+			if (response.getBody() == null) {
+				throw new AccountNotFoundException();
+			}
 
-		log.info("해외 증거금(현금 잔고) 응답: {}", cashBalance);
-
-		return cashBalance;
+			return response.getBody();
+		} catch (Exception e) {
+			throw new AccountNotFoundException();
+		}
 	}
 
 	private Map<String, String> createStockBalanceParams() {
+		if (accountNumber == null || accountNumber.trim().isEmpty()) {
+			throw new AccountNotFoundException();
+		}
+		if (accountProductCode == null || accountProductCode.trim().isEmpty()) {
+			throw new AccountNotFoundException();
+		}
+
 		Map<String, String> params = new HashMap<>();
 		params.put("CANO", accountNumber);
 		params.put("ACNT_PRDT_CD", accountProductCode);
