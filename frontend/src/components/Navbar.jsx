@@ -1,57 +1,80 @@
 const Navbar = () => {
   return (
-    <div
-      class="relative flex flex-wrap items-center justify-between px-0 py-2 mx-6 transition-all ease-in shadow-none duration-250 rounded-2xl lg:flex-nowrap lg:justify-start"
-      navbar-main
-      navbar-scroll="false"
-    >
-      <div class="flex items-center justify-between w-full px-4 py-1 mx-auto flex-wrap-inherit">
-        <div class="flex items-center mt-2 grow sm:mt-0 sm:mr-6 md:mr-0 lg:flex lg:basis-auto">
-          <div class="flex items-center md:ml-auto md:pr-4">
-            <div class="relative flex flex-wrap items-stretch w-full transition-all rounded-lg ease">
-              <span class="text-sm ease leading-5.6 absolute z-50 -ml-px flex h-full items-center whitespace-nowrap rounded-lg rounded-tr-none rounded-br-none border border-r-0 border-transparent bg-transparent py-2 px-2.5 text-center font-normal text-slate-500 transition-all">
-                <i class="fas fa-search"></i>
-              </span>
-              <input
-                type="text"
-                class="pl-9 text-sm focus:shadow-primary-outline ease w-1/100 leading-5.6 relative -ml-px block min-w-0 flex-auto rounded-lg border border-solid border-gray-300 bg-white bg-clip-padding py-2 pr-3 text-gray-700 transition-all placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:transition-shadow"
-                placeholder="Type here..."
-                src="#"
-              />
+    <div className="bg-gradient-to-r from-slate-800 to-slate-900 shadow-lg">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* 로고 */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">💎</span>
+              </div>
+              <span className="text-white text-xl font-bold">BillionaireTrader</span>
             </div>
           </div>
-          <ul class="flex flex-row justify-end pl-0 mb-0 list-none md-max:w-full">
-            <li class="flex items-center">
-              <a
-                href="./pages/sign-in.html"
-                class="block px-0 py-2 text-sm font-semibold text-white transition-all ease-nav-brand"
-              >
-                <i class="fa fa-user sm:mr-1"></i>
-                <span class="hidden sm:inline">Sign In</span>
-              </a>
-            </li>
-            <li class="flex items-center pl-4 xl:hidden">
-              <a
-                href="javascript:;"
-                class="block p-0 text-sm text-white transition-all ease-nav-brand"
-                sidenav-trigger
-              >
-                <div class="w-4.5 overflow-hidden">
-                  <i class="ease mb-0.75 relative block h-0.5 rounded-sm bg-white transition-all"></i>
-                  <i class="ease mb-0.75 relative block h-0.5 rounded-sm bg-white transition-all"></i>
-                  <i class="ease relative block h-0.5 rounded-sm bg-white transition-all"></i>
+
+          {/* 네비게이션 링크 */}
+          <nav className="hidden md:flex items-center gap-6">
+            <a href="#" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
+              대시보드
+            </a>
+            <a href="#" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
+              포트폴리오
+            </a>
+            <a href="#" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
+              자동매매
+            </a>
+            <a href="#" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
+              분석
+            </a>
+            <a href="#" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
+              설정
+            </a>
+          </nav>
+
+          {/* 우측 섹션 */}
+          <div className="flex items-center gap-4">
+            {/* 검색 */}
+            <div className="hidden lg:block">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="종목 검색..."
+                  className="bg-slate-700 text-white placeholder-slate-400 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-slate-600 transition-colors w-64"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                 </div>
-              </a>
-            </li>
-            <li class="flex items-center px-4">
-              <a
-                href="javascript:;"
-                class="p-0 text-sm text-white transition-all ease-nav-brand"
-              >
-                <i fixed-plugin-button-nav class="cursor-pointer fa fa-cog"></i>
-              </a>
-            </li>
-          </ul>
+              </div>
+            </div>
+
+            {/* 알림 */}
+            <button className="relative p-2 text-gray-300 hover:text-white transition-colors">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-5 5l5 5M7 7v10l5-5-5-5z" />
+              </svg>
+              <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-slate-800"></span>
+            </button>
+
+            {/* 사용자 메뉴 */}
+            <div className="relative">
+              <button className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors">
+                <div className="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center">
+                  <span className="text-sm font-medium">U</span>
+                </div>
+                <span className="hidden sm:block text-sm font-medium">사용자</span>
+              </button>
+            </div>
+
+            {/* 모바일 메뉴 버튼 */}
+            <button className="md:hidden p-2 text-gray-300 hover:text-white transition-colors">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
