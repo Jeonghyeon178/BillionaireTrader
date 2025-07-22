@@ -2,12 +2,10 @@ import React from "react";
 import ReactApexChart from "react-apexcharts";
 
 const LineChart = ({ data }) => {
-  // output2가 정의되지 않았을 때 기본값을 빈 배열로 설정
+  // 백엔드 LocalDate 형식 (YYYY-MM-DD)에 맞게 날짜 처리
   const formattedData = (data || []).map((item) => ({
-    x: new Date(
-      item.date?.replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3") || Date.now()
-    ),
-    y: item.price || 0, // 값이 없으면 기본값 0
+    x: new Date(item.date || Date.now()),
+    y: item.price || 0,
   }));
 
   const state = {

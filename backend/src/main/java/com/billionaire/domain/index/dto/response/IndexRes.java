@@ -23,4 +23,9 @@ public record IndexRes(
 	@NotNull(message = "변동률은 필수입니다")
 	Double rate
 ) {
+	public IndexRes {
+		if (rate != null) {
+			rate = Math.round(rate * 100.0) / 100.0;
+		}
+	}
 }
