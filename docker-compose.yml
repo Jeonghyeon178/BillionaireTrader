@@ -1,13 +1,13 @@
 services:
   db:
     image: postgres:latest
-    container_name: postgres-db
+    container_name: billionaire_db
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: postgres-db
+      POSTGRES_DB: billionaire_db
 
   backend:
     build:

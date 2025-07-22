@@ -46,4 +46,4 @@ dist/
 .taskmaster/
 CLAUDE.md
 
-.env.example
+.env

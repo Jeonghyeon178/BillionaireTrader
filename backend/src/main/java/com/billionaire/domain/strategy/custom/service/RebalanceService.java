@@ -150,12 +150,12 @@ public class RebalanceService {
 
 		StockRes highest = data.stream()
 			.max(Comparator.comparing(StockRes::price))
-			.orElseThrow(() -> new HighestPriceNotFoundException(ticker));
+			.orElseThrow(HighestPriceNotFoundException::new);
 
 		StockRes lowestAfterHigh = data.stream()
 			.filter(s -> s.date().isAfter(highest.date()))
 			.min(Comparator.comparing(StockRes::price))
-			.orElseThrow(() -> new LowestPriceNotFoundException(ticker));
+			.orElseThrow(LowestPriceNotFoundException::new);
 
 		double currentPrice = data.get(data.size() - 1).price();
 
@@ -174,7 +174,7 @@ public class RebalanceService {
 		return ownStocks.stream()
 			.filter(stock -> stock.ovrsPdno().equals(ticker))
 			.findFirst()
-			.orElseThrow(() -> new HoldingStockNotFoundException(ticker));
+			.orElseThrow(HoldingStockNotFoundException::new);
 	}
 
 	private void processNormalSelling(ProcessingData data) {
