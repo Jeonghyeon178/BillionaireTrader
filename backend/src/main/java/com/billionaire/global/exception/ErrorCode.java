@@ -26,14 +26,6 @@ public enum ErrorCode {
 	INDEX_NOT_FOUND(HttpStatus.NOT_FOUND, "I001", "인덱스 정보를 찾을 수 없습니다."),
 	INDEX_DATA_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "I002", "인덱스 데이터 조회에 실패했습니다."),
 	INVALID_INDEX_TICKER(HttpStatus.BAD_REQUEST, "I003", "유효하지 않은 인덱스 티커입니다."),
-	INDEX_DATA_NOT_FOUND(HttpStatus.NOT_FOUND, "I004", "인덱스 데이터를 찾을 수 없습니다."),
-
-	// OrderDto
-	ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "O001", "주문을 찾을 수 없습니다."),
-	INVALID_ORDER_TYPE(HttpStatus.BAD_REQUEST, "O002", "유효하지 않은 주문 타입입니다."),
-	ORDER_EXECUTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "O003", "주문 실행에 실패했습니다."),
-	INVALID_ORDER_QUANTITY(HttpStatus.BAD_REQUEST, "O004", "유효하지 않은 주문 수량입니다."),
-	ORDER_ALREADY_CANCELLED(HttpStatus.BAD_REQUEST, "O005", "이미 취소된 주문입니다."),
 
 	// Token
 	TOKEN_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "토큰을 찾을 수 없습니다."),
@@ -50,7 +42,23 @@ public enum ErrorCode {
 	// External API
 	EXTERNAL_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E001", "외부 API 호출에 실패했습니다."),
 	API_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "E002", "API 호출 한도를 초과했습니다."),
-	API_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "E003", "API 인증에 실패했습니다.");
+	API_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "E003", "API 인증에 실패했습니다."),
+	API_REQUEST_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E004", "API 요청이 실패했습니다."),
+	INVALID_API_URL(HttpStatus.BAD_REQUEST, "E005", "유효하지 않은 API URL입니다."),
+	INVALID_API_RESPONSE_TYPE(HttpStatus.BAD_REQUEST, "E006", "유효하지 않은 API 응답 타입입니다."),
+
+	// Token Utils
+	TOKEN_INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "T003", "유효하지 않은 액세스 토큰입니다."),
+	TOKEN_MISSING_APP_KEY(HttpStatus.INTERNAL_SERVER_ERROR, "T004", "App Key가 설정되지 않았습니다."),
+	TOKEN_MISSING_APP_SECRET(HttpStatus.INTERNAL_SERVER_ERROR, "T005", "App Secret이 설정되지 않았습니다."),
+	TOKEN_INVALID_TRANSACTION_ID(HttpStatus.BAD_REQUEST, "T006", "유효하지 않은 Transaction ID입니다."),
+	TOKEN_REFRESH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "T007", "토큰 갱신에 실패했습니다."),
+
+	// Date Utils
+	DATE_NULL_OR_EMPTY(HttpStatus.BAD_REQUEST, "D001", "날짜 문자열이 null이거나 비어있습니다."),
+	DATE_INVALID_LENGTH(HttpStatus.BAD_REQUEST, "D002", "날짜 문자열의 길이가 올바르지 않습니다."),
+	DATE_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "D003", "유효하지 않은 날짜 형식입니다."),
+	DATE_NULL_OBJECT(HttpStatus.BAD_REQUEST, "D004", "날짜 객체가 null입니다.");
 
 	private final HttpStatus status;
 	private final String code;
