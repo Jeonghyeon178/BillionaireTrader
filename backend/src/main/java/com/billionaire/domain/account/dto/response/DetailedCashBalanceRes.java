@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record DetailedCashBalanceRes(
-	@NotBlank(message = "거래가능금액은 필수입니다")
+	@NotBlank(message = "거래 가능 금액은 필수입니다")
 	String frcrDnclAmt1
 ) {
 }

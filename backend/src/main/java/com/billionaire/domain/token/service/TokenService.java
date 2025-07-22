@@ -32,9 +32,9 @@ public class TokenService {
 	private final TokenRepository tokenRepository;
 	private final ApiUtils apiUtils;
 	@Value("${ks.app-key}")
-	private String APP_KEY;
+	private String appKey;
 	@Value("${ks.app-secret}")
-	private String APP_SECRET;
+	private String appSecret;
 
 	@Transactional
 	public void validateOrRefreshToken() {
@@ -67,8 +67,8 @@ public class TokenService {
 
 			Map<String, String> requestMap = Map.of(
 				"grant_type", "client_credentials",
-				"appkey", APP_KEY,
-				"appsecret", APP_SECRET
+				"appkey", appKey,
+				"appsecret", appSecret
 				);
 
 			ResponseEntity<TokenRes> response = apiUtils.postRequest(

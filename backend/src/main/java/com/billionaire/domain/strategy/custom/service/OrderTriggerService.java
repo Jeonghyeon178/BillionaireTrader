@@ -36,42 +36,58 @@ public class OrderTriggerService {
 
 	private boolean check(List<IndexRes> data) {
 		LocalDate fromDate = LocalDate.now().minusMonths(2).minusDays(1);
-		List<IndexRes> drops = new ArrayList<>();
-
-		for (IndexRes index : data) {
-			if (!index.date().isBefore(fromDate) && index.rate() <= -3.0) {
-				drops.add(index);
-			}
-		}
+		List<IndexRes> drops = getRecentDrops(data, fromDate);
 
 		if (drops.isEmpty()) {
 			log.info("📉 최근 2달간 -3% 하락 없음 → 공황 아님");
 			return false;
 		}
 
-		if (drops.size() >= 4) {
-			LocalDate first = drops.get(0).date();
-			LocalDate fourth = drops.get(3).date();
+		return drops.size() >= 4 ? checkMultipleDrops(data, drops) : checkSingleDrop(data, drops);
+	}
 
-			boolean fourDropsInOneMonth = !first.isAfter(fourth.plusMonths(1).plusDays(1));
-
-			if (fourDropsInOneMonth) {
-				LocalDate dropDate = drops.get(drops.size() - 1).date();
-				if (hasEightConsecutiveUps(data, dropDate)) {
-					log.info("📈 공황 해제 (8거래일 연속 상승)");
-					return false;
-				}
-				log.info("⚠️ 공황 상태 (4회 이상 발생)");
-			} else {
-				if (LocalDate.now().isAfter(first.plusMonths(1).plusDays(1))) {
-					log.info("✅ 공황 아님 (최근 하락 발생일로부터 한 달 이상 지남)");
-					return false;
-				}
-				log.info("⚠️ 공황 상태 (4회 이상이지만 1개월 내 조건 미충족)");
+	private List<IndexRes> getRecentDrops(List<IndexRes> data, LocalDate fromDate) {
+		List<IndexRes> drops = new ArrayList<>();
+		for (IndexRes index : data) {
+			if (!index.date().isBefore(fromDate) && index.rate() <= -3.0) {
+				drops.add(index);
 			}
-			return true;
 		}
+		return drops;
+	}
 
+	private boolean checkMultipleDrops(List<IndexRes> data, List<IndexRes> drops) {
+		LocalDate first = drops.get(0).date();
+		LocalDate fourth = drops.get(3).date();
+		boolean fourDropsInOneMonth = !first.isAfter(fourth.plusMonths(1).plusDays(1));
+
+		if (fourDropsInOneMonth) {
+			return checkPanicWithRecovery(data, drops);
+		} else {
+			return checkExpiredPanic(first);
+		}
+	}
+
+	private boolean checkPanicWithRecovery(List<IndexRes> data, List<IndexRes> drops) {
+		LocalDate dropDate = drops.get(drops.size() - 1).date();
+		if (hasEightConsecutiveUps(data, dropDate)) {
+			log.info("📈 공황 해제 (8거래일 연속 상승)");
+			return false;
+		}
+		log.info("⚠️ 공황 상태 (4회 이상 발생)");
+		return true;
+	}
+
+	private boolean checkExpiredPanic(LocalDate first) {
+		if (LocalDate.now().isAfter(first.plusMonths(1).plusDays(1))) {
+			log.info("✅ 공황 아님 (최근 하락 발생일로부터 한 달 이상 지남)");
+			return false;
+		}
+		log.info("⚠️ 공황 상태 (4회 이상이지만 1개월 내 조건 미충족)");
+		return true;
+	}
+
+	private boolean checkSingleDrop(List<IndexRes> data, List<IndexRes> drops) {
 		LocalDate dropDate = drops.get(0).date();
 		if (!dropDate.isBefore(LocalDate.now().minusMonths(1).minusDays(1))) {
 			if (hasEightConsecutiveUps(data, dropDate)) {

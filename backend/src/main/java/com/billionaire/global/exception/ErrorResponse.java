@@ -1,8 +1,6 @@
-package com.billionaire.global.dto;
+package com.billionaire.global.exception;
 
 import org.springframework.http.HttpStatus;
-
-import com.billionaire.global.exception.ErrorCode;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

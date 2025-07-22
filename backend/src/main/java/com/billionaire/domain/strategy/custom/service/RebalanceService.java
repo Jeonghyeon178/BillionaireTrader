@@ -27,6 +27,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Service
 public class RebalanceService {
+	private static final String CURRENCY_FORMAT = "%,.0f";
+	private static final String PERCENTAGE_FORMAT = "%.1f%%";
+	
 	private final OrderService orderService;
 	private final OrderTriggerService orderTriggerService;
 	private final PendingOrderService pendingOrderService;
@@ -66,16 +69,18 @@ public class RebalanceService {
 	}
 
 	public void rebalance(List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
-		boolean trigger = orderTriggerService.isPanic();
+		boolean isPanic = orderTriggerService.isPanic();
 
 		flushNonStrategyStocks(ownStocks, stockInfoDtoList);
-		rebalanceForSelling(trigger, ownStocks, stockInfoDtoList);
+		executeRebalancing(isPanic, ownStocks, stockInfoDtoList);
+	}
 
-		boolean sellOrdersDone = waitUntilSellOrdersFilled();
-		if (sellOrdersDone) {
-			rebalanceForBuying(trigger, ownStocks, stockInfoDtoList);
+	private void executeRebalancing(boolean isPanic, List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
+		rebalanceForSelling(isPanic, ownStocks, stockInfoDtoList);
+
+		if (waitUntilSellOrdersFilled()) {
+			rebalanceForBuying(isPanic, ownStocks, stockInfoDtoList);
 		}
-
 	}
 
 	private void flushNonStrategyStocks(List<DetailedStockBalanceData1Res> stocks, List<StockInfoDto> targetStocks) {
@@ -100,17 +105,11 @@ public class RebalanceService {
 		}
 	}
 
-	private void rebalanceForSelling(boolean trigger, List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
-		for (StockInfoDto stockInfoDto : stockInfoDtoList) {
-			StockAnalysis analysis = analyzeStock(stockInfoDto.ticker());
-			ProcessingData data = prepareProcessingData(stockInfoDto, ownStocks, analysis);
-
-			if (!trigger) {
-				processNormalSelling(data);
-			} else {
-				processPanicSelling(data);
-			}
-		}
+	private void rebalanceForSelling(boolean isPanic, List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
+		stockInfoDtoList.forEach(stockInfo -> {
+			ProcessingData data = createProcessingData(stockInfo, ownStocks);
+			processSellingStrategy(data, isPanic);
+		});
 	}
 
 	private boolean waitUntilSellOrdersFilled() {
@@ -138,17 +137,11 @@ public class RebalanceService {
 		return false;
 	}
 
-	private void rebalanceForBuying(boolean trigger, List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
-		for (StockInfoDto stockInfoDto : stockInfoDtoList) {
-			StockAnalysis analysis = analyzeStock(stockInfoDto.ticker());
-			ProcessingData data = prepareProcessingData(stockInfoDto, ownStocks, analysis);
-
-			if (!trigger) {
-				processNormalBuying(data);
-			} else {
-				processPanicBuying(data);
-			}
-		}
+	private void rebalanceForBuying(boolean isPanic, List<DetailedStockBalanceData1Res> ownStocks, List<StockInfoDto> stockInfoDtoList) {
+		stockInfoDtoList.forEach(stockInfo -> {
+			ProcessingData data = createProcessingData(stockInfo, ownStocks);
+			processBuyingStrategy(data, isPanic);
+		});
 	}
 
 	// 주식 분석 메서드
@@ -169,39 +162,28 @@ public class RebalanceService {
 		return new StockAnalysis(highest, lowestAfterHigh, currentPrice);
 	}
 
-	// 처리 데이터 준비 메서드
-	private ProcessingData prepareProcessingData(StockInfoDto stockInfoDto,
-		List<DetailedStockBalanceData1Res> ownStocks,
-		StockAnalysis analysis) {
-		DetailedStockBalanceData1Res matched = ownStocks.stream()
-			.filter(own -> own.ovrsPdno().equals(stockInfoDto.ticker()))
-			.findFirst()
-			.orElseThrow(() -> new HoldingStockNotFoundException(stockInfoDto.ticker()));
-
+	private ProcessingData createProcessingData(StockInfoDto stockInfo, List<DetailedStockBalanceData1Res> ownStocks) {
+		StockAnalysis analysis = analyzeStock(stockInfo.ticker());
+		DetailedStockBalanceData1Res matched = findHoldingStock(ownStocks, stockInfo.ticker());
 		double ownAmount = Double.parseDouble(matched.ovrsStckEvluAmt());
 
-		return new ProcessingData(stockInfoDto, matched, ownAmount, analysis);
+		return new ProcessingData(stockInfo, matched, ownAmount, analysis);
 	}
 
-	// 일반 상황에서의 매도 처리
-	private void processNormalSelling(ProcessingData data) {
-		StockAnalysis analysis = data.analysis;
+	private DetailedStockBalanceData1Res findHoldingStock(List<DetailedStockBalanceData1Res> ownStocks, String ticker) {
+		return ownStocks.stream()
+			.filter(stock -> stock.ovrsPdno().equals(ticker))
+			.findFirst()
+			.orElseThrow(() -> new HoldingStockNotFoundException(ticker));
+	}
 
-		if (analysis.lowestPriceAfterHighestPrice * 1.1 < analysis.currentPrice) {
-			double result = data.stockInfoDto.amount() - data.ownAmount;
-			if (result < 0) {
-				log.info("{} 매도: {}", data.stockInfoDto.ticker(), result);
-				orderService.stockOrder(new OrderDto(
-					data.stockInfoDto.ticker(),
-					(int)(result / analysis.currentPrice),
-					analysis.currentPrice,
-					OrderType.SELL)
-				);
-			}
+	private void processNormalSelling(ProcessingData data) {
+		if (isRecoveryConditionMet(data.analysis)) {
+			executeRecoveryTrade(data, OrderType.SELL);
 		}
 
-		if (analysis.currentPrice < analysis.highestPrice) {
-			processDropBasedSelling(data, TradingConstants.Rebalancing.DROP_UNIT_5_PERCENT);
+		if (isPriceDropped(data.analysis)) {
+			processDropBasedSelling(data);
 		}
 	}
 
@@ -215,11 +197,11 @@ public class RebalanceService {
 
 			if (dropCount > 0) {
 				double amountToLiquidate = data.stockInfoDto.amount() * TradingConstants.Rebalancing.TRADE_RATIO_10_PERCENT * dropCount;
-				log.info("현금화 액수: {}", amountToLiquidate);
+				log.info("📊 [{}] 패닉 현금화 목표액: ₩{}", data.stockInfoDto.ticker(), formatCurrency(amountToLiquidate));
 
 				double result = -(data.ownAmount - data.stockInfoDto.amount()) + data.stockInfoDto.amount() - amountToLiquidate;
 				if (result < 0) {
-					log.info("현금화 액수: {}", result);
+					logTradingAction(data.stockInfoDto.ticker(), "패닉 현금화", -result, analysis.currentPrice, OrderType.SELL);
 					orderService.stockOrder(new OrderDto(
 						data.stockInfoDto.ticker(),
 						(int)(result / analysis.currentPrice),
@@ -232,17 +214,18 @@ public class RebalanceService {
 	}
 
 	// 하락률 기반 매도 처리
-	private void processDropBasedSelling(ProcessingData data, double dropUnit) {
+	private void processDropBasedSelling(ProcessingData data) {
 		StockAnalysis analysis = data.analysis;
 		double totalDropPercentage = (analysis.highestPrice - analysis.currentPrice) / analysis.highestPrice;
 
-		int dropCount = (int)(totalDropPercentage / dropUnit);
+		int dropCount = (int)(totalDropPercentage / TradingConstants.Rebalancing.DROP_UNIT_5_PERCENT);
 		if (dropCount > 0) {
 			double amountToPurchase = data.stockInfoDto.amount() * TradingConstants.Rebalancing.TRADE_RATIO_10_PERCENT * dropCount;
 			double result = amountToPurchase - data.ownAmount;
 
 			if (result < 0) {
-				log.info("{} 매도: {}", data.stockInfoDto.ticker(), -result);
+				String dropPercentage = formatPercentage(totalDropPercentage * 100);
+				logTradingAction(data.stockInfoDto.ticker(), "하락 매도(" + dropPercentage + ")", -result, analysis.currentPrice, OrderType.SELL);
 				orderService.stockOrder(new OrderDto(
 					data.stockInfoDto.ticker(),
 					(int)(result / analysis.currentPrice),
@@ -253,24 +236,12 @@ public class RebalanceService {
 		}
 	}
 
-	// 일반 상황에서의 매수 처리
 	private void processNormalBuying(ProcessingData data) {
-		StockAnalysis analysis = data.analysis;
-
-		if (analysis.lowestPriceAfterHighestPrice * 1.1 < analysis.currentPrice) {
-			double result = data.stockInfoDto.amount() - data.ownAmount;
-			if (result > 0) {
-				log.info("{} 매수: {}", data.stockInfoDto.ticker(), data.stockInfoDto.amount());
-				orderService.stockOrder(new OrderDto(
-					data.stockInfoDto.ticker(),
-					(int)(result / analysis.currentPrice),
-					analysis.currentPrice,
-					OrderType.BUY)
-				);
-			}
+		if (isRecoveryConditionMet(data.analysis)) {
+			executeRecoveryTrade(data, OrderType.BUY);
 		}
 
-		if (analysis.currentPrice < analysis.highestPrice) {
+		if (isPriceDropped(data.analysis)) {
 			processDropBasedBuying(data);
 		}
 	}
@@ -285,11 +256,11 @@ public class RebalanceService {
 
 			if (dropCount > 0) {
 				double amountToLiquidate = data.stockInfoDto.amount() * TradingConstants.Rebalancing.TRADE_RATIO_10_PERCENT * dropCount;
-				log.info("현금화 액수: {}", amountToLiquidate);
+				log.info("📊 [{}] 패닉 투자 목표액: ₩{}", data.stockInfoDto.ticker(), formatCurrency(amountToLiquidate));
 
 				double result = -(data.ownAmount - data.stockInfoDto.amount()) + data.stockInfoDto.amount() - amountToLiquidate;
 				if (result > 0) {
-					log.info("매수 액수: {}", result);
+					logTradingAction(data.stockInfoDto.ticker(), "패닉 매수", result, analysis.currentPrice, OrderType.BUY);
 					orderService.stockOrder(new OrderDto(
 						data.stockInfoDto.ticker(),
 						(int)(result / analysis.currentPrice),
@@ -312,7 +283,8 @@ public class RebalanceService {
 			double result = amountToPurchase - data.ownAmount;
 
 			if (result > 0) {
-				log.info("{} 매수: {}", data.stockInfoDto.ticker(), result);
+				String dropPercentage = formatPercentage(totalDropPercentage * 100);
+				logTradingAction(data.stockInfoDto.ticker(), "하락 매수(" + dropPercentage + ")", result, analysis.currentPrice, OrderType.BUY);
 				orderService.stockOrder(new OrderDto(
 					data.stockInfoDto.ticker(),
 					(int)(result / analysis.currentPrice),
@@ -321,5 +293,65 @@ public class RebalanceService {
 				);
 			}
 		}
+	}
+
+	private void processSellingStrategy(ProcessingData data, boolean isPanic) {
+		if (isPanic) {
+			processPanicSelling(data);
+		} else {
+			processNormalSelling(data);
+		}
+	}
+
+	private void processBuyingStrategy(ProcessingData data, boolean isPanic) {
+		if (isPanic) {
+			processPanicBuying(data);
+		} else {
+			processNormalBuying(data);
+		}
+	}
+
+	private boolean isRecoveryConditionMet(StockAnalysis analysis) {
+		return analysis.lowestPriceAfterHighestPrice * 1.1 < analysis.currentPrice;
+	}
+
+	private boolean isPriceDropped(StockAnalysis analysis) {
+		return analysis.currentPrice < analysis.highestPrice;
+	}
+
+	private void executeRecoveryTrade(ProcessingData data, OrderType orderType) {
+		double result = data.stockInfoDto.amount() - data.ownAmount;
+		boolean shouldExecute = (orderType == OrderType.SELL && result < 0) || (orderType == OrderType.BUY && result > 0);
+		
+		if (shouldExecute) {
+			double tradeAmount = Math.abs(result);
+			String action = "회복 조건 " + (orderType == OrderType.SELL ? "매도" : "매수");
+			logTradingAction(data.stockInfoDto.ticker(), action, tradeAmount, data.analysis.currentPrice, orderType);
+			
+			orderService.stockOrder(new OrderDto(
+				data.stockInfoDto.ticker(),
+				(int)(result / data.analysis.currentPrice),
+				data.analysis.currentPrice,
+				orderType)
+			);
+		}
+	}
+
+	private String formatCurrency(double amount) {
+		return String.format(CURRENCY_FORMAT, amount);
+	}
+
+	private String formatPercentage(double percentage) {
+		return String.format(PERCENTAGE_FORMAT, percentage);
+	}
+
+	private void logTradingAction(String ticker, String action, double amount, double price, OrderType orderType) {
+		String emoji = orderType == OrderType.BUY ? "📈" : "📉";
+		String formattedAmount = formatCurrency(amount);
+		String formattedPrice = formatCurrency(price);
+		int quantity = (int)(amount / price);
+		
+		log.info("{} [{}] {} | 금액: ₩{} | 가격: ₩{} | 수량: {}주", 
+			emoji, ticker, action, formattedAmount, formattedPrice, quantity);
 	}
 }

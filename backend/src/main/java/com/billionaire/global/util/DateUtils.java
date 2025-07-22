@@ -4,6 +4,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 public class DateUtils {
+	private DateUtils() {
+		throw new AssertionError("유틸리티 클래스 - 인스턴스화하지 마십시오");
+	}
 
 	// yyyyMMdd 포맷을 위한 상수 포매터
 	public static final DateTimeFormatter YYYYMMDD_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");

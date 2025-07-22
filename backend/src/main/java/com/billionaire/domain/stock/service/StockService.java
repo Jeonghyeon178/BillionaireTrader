@@ -12,8 +12,8 @@ import java.util.stream.Stream;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import com.billionaire.global.dto.MarketPriceDetailedInfoRes;
-import com.billionaire.global.dto.MarketPriceRes;
+import com.billionaire.global.dto.internal.MarketPriceDetailedInfoRes;
+import com.billionaire.global.dto.internal.MarketPriceRes;
 import com.billionaire.domain.stock.dto.response.StockRes;
 import com.billionaire.domain.stock.entity.Stock;
 import com.billionaire.domain.stock.exception.StockDataFetchFailedException;
