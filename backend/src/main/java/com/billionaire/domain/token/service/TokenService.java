@@ -43,8 +43,6 @@ public class TokenService {
 			if (token.getExpiration().isBefore(LocalDateTime.now())) {
 				log.info("토큰이 만료되었습니다. 새로운 토큰을 요청합니다.");
 				requestNewAccessToken();
-			} else {
-				log.info("토큰은 아직 유효합니다: {}", token.getAccessToken());
 			}
 		} catch (TokenNotFoundException e) {
 			log.info("저장된 토큰이 없습니다. 새로운 토큰을 요청합니다.");

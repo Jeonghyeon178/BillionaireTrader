@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Service
 public class PendingOrderService {
-	static String url = "https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/inquire-nccs";
+	private static final String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/inquire-nccs";
 	@Value("${ks.account-number}")
 	private String accountNumber;
 	@Value("${ks.account-product-code}")
@@ -38,7 +38,7 @@ public class PendingOrderService {
 		);
 		ResponseEntity<InquireNccsRes> response = apiUtils.getRequest(
 			tokenUtils.createAuthorizationHeaders("TTTS3018R"),
-			url,
+			URL,
 			params,
 			InquireNccsRes.class
 		);

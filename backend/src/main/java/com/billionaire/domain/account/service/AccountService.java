@@ -30,6 +30,8 @@ public class AccountService {
 	private final TokenUtils tokenUtils;
 	private final ApiUtils apiUtils;
 
+	// 총 수익률 -> 계좌 총금액, 해외 총손익.
+	// 하루 수익률 계산은 어케하지..?
 	public AccountBalanceDto getAccountBalance() {
 
 		StockBalanceRes stockBalance = getStockBalance();

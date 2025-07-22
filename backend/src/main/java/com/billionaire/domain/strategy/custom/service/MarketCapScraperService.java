@@ -18,13 +18,13 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Service
 public class MarketCapScraperService {
-	static String url = "https://kr.tradingview.com/markets/stocks-usa/market-movers-large-cap/";
+	private static final String URL = "https://kr.tradingview.com/markets/stocks-usa/market-movers-large-cap/";
 	public Long getLargestMarketCap() throws IOException {
 		// 데이터를 담을 리스트를 초기화
 		List<Map<String, Object>> marketCaps = new ArrayList<>();
 
 		// 테이블의 모든 행을 찾음
-		Elements rows = Jsoup.connect(url).get().select("table tbody tr");
+		Elements rows = Jsoup.connect(URL).get().select("table tbody tr");
 
 		for (Element row : rows) {
 			// 회사명 추출
