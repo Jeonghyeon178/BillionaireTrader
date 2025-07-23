@@ -11,4 +11,19 @@ public class BusinessException extends RuntimeException {
 		super(errorCode.getMessage());
 		this.errorCode = errorCode;
 	}
+
+	public BusinessException(ErrorCode errorCode, String extraMessage) {
+		super(String.format("%s - %s", errorCode.getMessage(), extraMessage));
+		this.errorCode = errorCode;
+	}
+
+	public BusinessException(ErrorCode errorCode, Throwable cause) {
+		super(errorCode.getMessage(), cause);
+		this.errorCode = errorCode;
+	}
+
+	public BusinessException(ErrorCode errorCode, Throwable cause, String extraMessage) {
+		super(String.format("%s - %s", errorCode.getMessage(), extraMessage), cause);
+		this.errorCode = errorCode;
+	}
 }

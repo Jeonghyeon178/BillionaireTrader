@@ -39,6 +39,11 @@ public enum ErrorCode {
 	LOWEST_PRICE_NOT_FOUND(HttpStatus.NOT_FOUND, "ST005", "최저가 데이터를 찾을 수 없습니다."),
 	HOLDING_STOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "ST006", "보유 주식 정보를 찾을 수 없습니다."),
 
+	// Listing
+	LISTING_FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "L001", "상장 종목 데이터 파일을 찾을 수 없습니다."),
+	LISTING_FILE_PARSING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "L002", "상장 종목 JSON 파싱에 실패했습니다."),
+	LISTING_SAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "L003", "상장 종목 DB 저장에 실패했습니다."),
+
 	// External API
 	EXTERNAL_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "E001", "외부 API 호출에 실패했습니다."),
 	API_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "E002", "API 호출 한도를 초과했습니다."),
