@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { getTickerIcon, getTickerName, formatPrice, formatPercentage, getPriceChangeColor } from '../../utils/marketUtils';
 
 const MarketListView = ({ marketData, selectedIndex, onIndexSelect }) => {
@@ -51,6 +52,16 @@ const MarketListView = ({ marketData, selectedIndex, onIndexSelect }) => {
       </div>
     </div>
   );
+};
+
+MarketListView.propTypes = {
+  marketData: PropTypes.arrayOf(PropTypes.shape({
+    ticker: PropTypes.string.isRequired,
+    price: PropTypes.number.isRequired,
+    rate: PropTypes.number.isRequired
+  })).isRequired,
+  selectedIndex: PropTypes.string.isRequired,
+  onIndexSelect: PropTypes.func.isRequired
 };
 
 export default MarketListView;

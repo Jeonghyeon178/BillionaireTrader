@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const Container = ({ children, className = '', maxWidth = '1600px' }) => {
   const maxWidthClass = {
@@ -13,6 +14,18 @@ const Container = ({ children, className = '', maxWidth = '1600px' }) => {
       {children}
     </div>
   );
+};
+
+Container.propTypes = {
+  children: PropTypes.node,
+  className: PropTypes.string,
+  maxWidth: PropTypes.oneOf(['1200px', '1400px', '1600px', 'full'])
+};
+
+Container.defaultProps = {
+  children: null,
+  className: '',
+  maxWidth: '1600px'
 };
 
 export default Container;

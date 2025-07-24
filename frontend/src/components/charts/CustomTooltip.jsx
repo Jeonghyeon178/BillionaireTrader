@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const CustomTooltip = ({ 
   active, 
@@ -51,6 +52,36 @@ const CustomTooltip = ({
       )}
     </div>
   );
+};
+
+CustomTooltip.propTypes = {
+  active: PropTypes.bool,
+  payload: PropTypes.arrayOf(PropTypes.shape({
+    value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    payload: PropTypes.shape({
+      price: PropTypes.number,
+      volume: PropTypes.number
+    })
+  })),
+  label: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  baselineData: PropTypes.arrayOf(PropTypes.shape({
+    price: PropTypes.number
+  })),
+  showVolume: PropTypes.bool,
+  formatValue: PropTypes.func,
+  formatLabel: PropTypes.func,
+  className: PropTypes.string
+};
+
+CustomTooltip.defaultProps = {
+  active: false,
+  payload: [],
+  label: '',
+  baselineData: [],
+  showVolume: true,
+  formatValue: null,
+  formatLabel: null,
+  className: ''
 };
 
 export default CustomTooltip;

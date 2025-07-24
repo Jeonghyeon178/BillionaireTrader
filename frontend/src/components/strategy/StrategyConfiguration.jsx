@@ -1,5 +1,6 @@
 import React from 'react';
 
+// StrategyConfiguration component doesn't accept any props based on the current implementation
 const StrategyConfiguration = () => {
   const configItems = [
     {

@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const StrategyCard = ({ strategy, onToggle, onEdit }) => {
   const getStatusColor = (status) => {
@@ -86,6 +87,22 @@ const StrategyCard = ({ strategy, onToggle, onEdit }) => {
       </div>
     </div>
   );
+};
+
+StrategyCard.propTypes = {
+  strategy: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    icon: PropTypes.string.isRequired,
+    description: PropTypes.string.isRequired,
+    status: PropTypes.oneOf(['active', 'paused', 'stopped']).isRequired,
+    return: PropTypes.number.isRequired,
+    investment: PropTypes.number.isRequired,
+    lastTrade: PropTypes.string.isRequired,
+    tradeCount: PropTypes.number.isRequired
+  }).isRequired,
+  onToggle: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired
 };
 
 export default StrategyCard;

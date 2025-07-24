@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { getMarketSentiment } from '../../utils/marketUtils';
 
 const MarketSummary = ({ marketData }) => {
@@ -36,6 +37,12 @@ const MarketSummary = ({ marketData }) => {
       </div>
     </div>
   );
+};
+
+MarketSummary.propTypes = {
+  marketData: PropTypes.arrayOf(PropTypes.shape({
+    rate: PropTypes.number.isRequired
+  })).isRequired
 };
 
 export default MarketSummary;

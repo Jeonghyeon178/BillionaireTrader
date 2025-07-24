@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const ChartHeader = ({ 
   title, 
@@ -31,6 +32,14 @@ const ChartHeader = ({
       </p>
     </div>
   );
+};
+
+ChartHeader.propTypes = {
+  title: PropTypes.string,
+  subtitle: PropTypes.string,
+  ticker: PropTypes.string,
+  timeFilter: PropTypes.string,
+  className: PropTypes.string
 };
 
 export default ChartHeader;

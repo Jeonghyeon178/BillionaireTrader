@@ -1,3 +1,5 @@
+import React from 'react';
+
 const SearchHistory = () => {
   return (
     <div>
@@ -5,4 +7,5 @@ const SearchHistory = () => {
     </div>
   );
 };
+
 export default SearchHistory;

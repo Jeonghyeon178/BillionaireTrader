@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import StrategyCard from '../strategy/StrategyCard';
 import StrategyPerformance from '../strategy/StrategyPerformance';
 import NewStrategyModal from '../strategy/NewStrategyModal';
@@ -128,6 +129,10 @@ const StrategyPanel = ({ schedulerStatus }) => {
       />
     </div>
   );
+};
+
+StrategyPanel.propTypes = {
+  schedulerStatus: PropTypes.string.isRequired
 };
 
 export default StrategyPanel;

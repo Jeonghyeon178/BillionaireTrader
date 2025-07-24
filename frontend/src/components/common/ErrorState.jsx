@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const ErrorState = ({ message, onRetry }) => {
   return (
@@ -17,6 +18,15 @@ const ErrorState = ({ message, onRetry }) => {
       </div>
     </div>
   );
+};
+
+ErrorState.propTypes = {
+  message: PropTypes.string.isRequired,
+  onRetry: PropTypes.func
+};
+
+ErrorState.defaultProps = {
+  onRetry: null
 };
 
 export default ErrorState;

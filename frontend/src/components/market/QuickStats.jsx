@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { formatTime } from '../../utils/marketUtils';
 
 const QuickStats = ({ selectedData }) => {
@@ -46,6 +47,17 @@ const QuickStats = ({ selectedData }) => {
       </div>
     </div>
   );
+};
+
+QuickStats.propTypes = {
+  selectedData: PropTypes.arrayOf(PropTypes.shape({
+    price: PropTypes.number.isRequired,
+    timestamp: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired
+  }))
+};
+
+QuickStats.defaultProps = {
+  selectedData: null
 };
 
 export default QuickStats;

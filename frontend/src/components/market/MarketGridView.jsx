@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import FinancialCard from '../financial/FinancialCard';
 
 const MarketGridView = ({ marketData, allIndexData, selectedIndex, onIndexSelect }) => {
@@ -24,6 +25,17 @@ const MarketGridView = ({ marketData, allIndexData, selectedIndex, onIndexSelect
       })}
     </div>
   );
+};
+
+MarketGridView.propTypes = {
+  marketData: PropTypes.arrayOf(PropTypes.shape({
+    ticker: PropTypes.string.isRequired,
+    price: PropTypes.number.isRequired,
+    rate: PropTypes.number.isRequired
+  })).isRequired,
+  allIndexData: PropTypes.object.isRequired,
+  selectedIndex: PropTypes.string.isRequired,
+  onIndexSelect: PropTypes.func.isRequired
 };
 
 export default MarketGridView;

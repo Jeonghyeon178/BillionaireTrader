@@ -1,6 +1,7 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
-const DarkMarketCard = ({ ticker, name, price, change, changePercent, onClick, isActive }) => {
+const DarkMarketCard = ({ ticker, name, price, changePercent, onClick, isActive }) => {
   const isPositive = changePercent >= 0;
   
   const getIcon = (ticker) => {
@@ -14,9 +15,9 @@ const DarkMarketCard = ({ ticker, name, price, change, changePercent, onClick, i
   };
 
   return (
-    <div 
+    <button 
       onClick={onClick}
-      className={`bg-slate-800 border border-slate-600 rounded-xl p-4 cursor-pointer transition-all duration-200 hover:border-slate-500 hover:shadow-lg ${isActive ? 'ring-2 ring-blue-500 bg-slate-700' : ''}`}
+      className={`bg-slate-800 border border-slate-600 rounded-xl p-4 cursor-pointer transition-all duration-200 hover:border-slate-500 hover:shadow-lg text-left w-full ${isActive ? 'ring-2 ring-blue-500 bg-slate-700' : ''}`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -36,8 +37,21 @@ const DarkMarketCard = ({ ticker, name, price, change, changePercent, onClick, i
           </p>
         </div>
       </div>
-    </div>
+    </button>
   );
+};
+
+DarkMarketCard.propTypes = {
+  ticker: PropTypes.string.isRequired,
+  name: PropTypes.string.isRequired,
+  price: PropTypes.number.isRequired,
+  changePercent: PropTypes.number.isRequired,
+  onClick: PropTypes.func.isRequired,
+  isActive: PropTypes.bool
+};
+
+DarkMarketCard.defaultProps = {
+  isActive: false
 };
 
 export default DarkMarketCard;

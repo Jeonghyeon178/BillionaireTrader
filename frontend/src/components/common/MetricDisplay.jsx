@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const MetricDisplay = ({ 
   title,
@@ -40,6 +41,18 @@ const MetricDisplay = ({
       )}
     </div>
   );
+};
+
+MetricDisplay.propTypes = {
+  title: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  subtitle: PropTypes.string,
+  valueColor: PropTypes.string,
+  titleColor: PropTypes.string,
+  subtitleColor: PropTypes.string,
+  badge: PropTypes.node,
+  icon: PropTypes.string,
+  trend: PropTypes.oneOf(['up', 'down'])
 };
 
 export default MetricDisplay;

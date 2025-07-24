@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const TopHoldings = ({ holdings }) => {
   return (
@@ -29,6 +30,15 @@ const TopHoldings = ({ holdings }) => {
       </div>
     </div>
   );
+};
+
+TopHoldings.propTypes = {
+  holdings: PropTypes.arrayOf(PropTypes.shape({
+    symbol: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    change: PropTypes.number.isRequired,
+    value: PropTypes.number.isRequired
+  })).isRequired
 };
 
 export default TopHoldings;

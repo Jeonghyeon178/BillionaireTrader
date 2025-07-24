@@ -1,3 +1,5 @@
+import React from 'react';
+
 const Navbar = () => {
   return (
     <div className="bg-gradient-to-r from-slate-800 to-slate-900 shadow-lg">
@@ -80,4 +82,8 @@ const Navbar = () => {
     </div>
   );
 };
+
+// Navbar doesn't accept any props
+Navbar.propTypes = {};
+
 export default Navbar;

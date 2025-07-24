@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const Section = ({ 
   title, 
@@ -39,6 +40,17 @@ const Section = ({
       </div>
     </div>
   );
+};
+
+Section.propTypes = {
+  title: PropTypes.string,
+  subtitle: PropTypes.string,
+  icon: PropTypes.string,
+  children: PropTypes.node,
+  className: PropTypes.string,
+  headerClassName: PropTypes.string,
+  contentClassName: PropTypes.string,
+  variant: PropTypes.oneOf(['default', 'card', 'transparent'])
 };
 
 export default Section;

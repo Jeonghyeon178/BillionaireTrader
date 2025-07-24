@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import MarketSummary from '../market/MarketSummary';
 import QuickStats from '../market/QuickStats';
 import ViewModeSwitcher from '../common/ViewModeSwitcher';
@@ -61,6 +62,17 @@ const MarketOverview = ({
       </div>
     </div>
   );
+};
+
+MarketOverview.propTypes = {
+  marketData: PropTypes.arrayOf(PropTypes.shape({
+    ticker: PropTypes.string.isRequired,
+    price: PropTypes.number.isRequired,
+    rate: PropTypes.number.isRequired
+  })),
+  allIndexData: PropTypes.object,
+  selectedIndex: PropTypes.string,
+  onIndexSelect: PropTypes.func.isRequired
 };
 
 export default MarketOverview;

@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const TimeFilter = ({ 
   timeFilter, 
@@ -34,6 +35,22 @@ const TimeFilter = ({
       ))}
     </div>
   );
+};
+
+TimeFilter.propTypes = {
+  timeFilter: PropTypes.string.isRequired,
+  onTimeFilterChange: PropTypes.func.isRequired,
+  filters: PropTypes.arrayOf(PropTypes.shape({
+    key: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    days: PropTypes.number
+  })),
+  className: PropTypes.string
+};
+
+TimeFilter.defaultProps = {
+  filters: null,
+  className: ''
 };
 
 export default TimeFilter;

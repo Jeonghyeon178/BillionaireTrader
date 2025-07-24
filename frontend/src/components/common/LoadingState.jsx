@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const LoadingState = ({ message = "로딩 중..." }) => {
   return (
@@ -9,6 +10,10 @@ const LoadingState = ({ message = "로딩 중..." }) => {
       </div>
     </div>
   );
+};
+
+LoadingState.propTypes = {
+  message: PropTypes.string
 };
 
 export default LoadingState;

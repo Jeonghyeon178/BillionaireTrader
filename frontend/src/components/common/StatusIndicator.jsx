@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const StatusIndicator = ({ 
   status, 
@@ -34,6 +35,13 @@ const StatusIndicator = ({
       <div className={`${sizeClasses[size]} rounded-full ${getStatusClasses()} ${showPulse ? 'animate-pulse' : ''}`}></div>
     </div>
   );
+};
+
+StatusIndicator.propTypes = {
+  status: PropTypes.oneOf(['success', 'enabled', 'error', 'disabled', 'warning', 'unknown']).isRequired,
+  icon: PropTypes.string,
+  showPulse: PropTypes.bool,
+  size: PropTypes.oneOf(['sm', 'md', 'lg'])
 };
 
 export default StatusIndicator;

@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const PerformanceMetrics = ({ metrics }) => {
   const cards = [
@@ -35,7 +36,7 @@ const PerformanceMetrics = ({ metrics }) => {
       gradient: metrics.goalProgress >= 100 ? 'from-green-500 to-emerald-500' : 'from-orange-500 to-amber-500'
     }
   ];
-
+  
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {cards.map((card, index) => (
@@ -65,6 +66,18 @@ const PerformanceMetrics = ({ metrics }) => {
       ))}
     </div>
   );
+};
+
+PerformanceMetrics.propTypes = {
+  metrics: PropTypes.shape({
+    totalReturn: PropTypes.number.isRequired,
+    totalGain: PropTypes.number.isRequired,
+    availableCash: PropTypes.number.isRequired,
+    totalValue: PropTypes.number.isRequired,
+    todayChange: PropTypes.number.isRequired,
+    todayGain: PropTypes.number.isRequired,
+    goalProgress: PropTypes.number.isRequired
+  }).isRequired
 };
 
 export default PerformanceMetrics;

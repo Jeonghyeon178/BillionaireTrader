@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const BaseCard = ({ 
   // Layout variants
@@ -83,7 +84,7 @@ const BaseCard = ({
     <div className="p-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-2xl">{icon}</span>
-        {badge && badge}
+        {badge}
       </div>
       <h3 className="text-slate-300 text-sm font-medium mb-1">{title}</h3>
       <div className="text-xl font-semibold font-mono text-white mb-1">
@@ -126,10 +127,20 @@ const BaseCard = ({
     ? "w-full max-w-full px-3 mb-6 sm:w-1/2 sm:flex-none xl:mb-0 xl:w-1/4"
     : "";
 
-  const cardElement = (
+  // Determine if this should be interactive
+  const isInteractive = onClick !== undefined;
+
+  const cardElement = isInteractive ? (
+    <button
+      className={`${getBaseClasses()} ${getRingClasses()} ${className} w-full text-left`}
+      onClick={onClick}
+      {...props}
+    >
+      {renderContent()}
+    </button>
+  ) : (
     <div 
       className={`${getBaseClasses()} ${getRingClasses()} ${className}`}
-      onClick={onClick}
       {...props}
     >
       {renderContent()}
@@ -146,6 +157,47 @@ const BaseCard = ({
   }
 
   return cardElement;
+};
+
+BaseCard.propTypes = {
+  // Layout variants
+  variant: PropTypes.oneOf(['default', 'financial', 'status', 'metric', 'success', 'error', 'warning']),
+  theme: PropTypes.oneOf(['light', 'dark']),
+  
+  // Common props
+  className: PropTypes.string,
+  onClick: PropTypes.func,
+  children: PropTypes.node,
+  
+  // Financial card props
+  index: PropTypes.string,
+  rate: PropTypes.number,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  
+  // Status card props  
+  icon: PropTypes.node,
+  title: PropTypes.string,
+  subtitle: PropTypes.string,
+  badge: PropTypes.node,
+  
+  // Styling props
+  ringColor: PropTypes.string
+};
+
+BaseCard.defaultProps = {
+  variant: 'default',
+  theme: 'dark',
+  className: '',
+  onClick: undefined,
+  children: null,
+  index: undefined,
+  rate: undefined,
+  value: undefined,
+  icon: undefined,
+  title: undefined,
+  subtitle: undefined,
+  badge: undefined,
+  ringColor: ''
 };
 
 export default BaseCard;

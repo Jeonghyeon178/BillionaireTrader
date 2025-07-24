@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 
 const NewStrategyModal = ({ isOpen, onClose, onSave }) => {
   const [formData, setFormData] = useState({
@@ -127,6 +128,12 @@ const NewStrategyModal = ({ isOpen, onClose, onSave }) => {
       </div>
     </div>
   );
+};
+
+NewStrategyModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired
 };
 
 export default NewStrategyModal;

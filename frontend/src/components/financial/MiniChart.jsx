@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const MiniChart = ({ data = [], width = 80, height = 40, trend }) => {
   if (!data || data.length === 0) {
@@ -83,6 +84,16 @@ const MiniChart = ({ data = [], width = 80, height = 40, trend }) => {
       </svg>
     </div>
   );
+};
+
+MiniChart.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.shape({
+    price: PropTypes.number,
+    value: PropTypes.number
+  })),
+  width: PropTypes.number,
+  height: PropTypes.number,
+  trend: PropTypes.number
 };
 
 export default MiniChart;

@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const TrendIndicator = ({ value, showIcon = true, size = 'md' }) => {
   const isPositive = value > 0;
@@ -40,6 +41,12 @@ const TrendIndicator = ({ value, showIcon = true, size = 'md' }) => {
       {formatValue()}
     </span>
   );
+};
+
+TrendIndicator.propTypes = {
+  value: PropTypes.number.isRequired,
+  showIcon: PropTypes.bool,
+  size: PropTypes.oneOf(['sm', 'md', 'lg'])
 };
 
 export default TrendIndicator;

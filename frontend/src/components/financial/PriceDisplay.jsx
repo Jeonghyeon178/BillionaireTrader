@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const PriceDisplay = ({ 
   value, 
@@ -55,6 +56,14 @@ const PriceDisplay = ({
       {formatPrice()}
     </span>
   );
+};
+
+PriceDisplay.propTypes = {
+  value: PropTypes.number.isRequired,
+  currency: PropTypes.oneOf(['KRW', 'USD']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl']),
+  trend: PropTypes.number,
+  showCurrency: PropTypes.bool
 };
 
 export default PriceDisplay;

@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const ViewModeSwitcher = ({ viewMode, onViewModeChange, options = [] }) => {
   const defaultOptions = [
@@ -25,6 +26,15 @@ const ViewModeSwitcher = ({ viewMode, onViewModeChange, options = [] }) => {
       ))}
     </div>
   );
+};
+
+ViewModeSwitcher.propTypes = {
+  viewMode: PropTypes.string.isRequired,
+  onViewModeChange: PropTypes.func.isRequired,
+  options: PropTypes.arrayOf(PropTypes.shape({
+    value: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired
+  }))
 };
 
 export default ViewModeSwitcher;

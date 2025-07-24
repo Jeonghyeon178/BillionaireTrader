@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const StatusCard = ({ 
   icon, 
@@ -142,6 +143,26 @@ const HeroDashboard = ({
       </div>
     </div>
   );
+};
+
+StatusCard.propTypes = {
+  icon: PropTypes.string.isRequired,
+  title: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  subtitle: PropTypes.string,
+  trend: PropTypes.oneOf(['up', 'down']),
+  onClick: PropTypes.func
+};
+
+HeroDashboard.propTypes = {
+  schedulerStatus: PropTypes.string.isRequired,
+  totalReturn: PropTypes.number,
+  todayReturn: PropTypes.number,
+  portfolioValue: PropTypes.number,
+  availableCash: PropTypes.number,
+  activeStrategies: PropTypes.number,
+  alertCount: PropTypes.number,
+  onToggleScheduler: PropTypes.func.isRequired
 };
 
 export default HeroDashboard;

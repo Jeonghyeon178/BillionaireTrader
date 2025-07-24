@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const StrategyPerformance = ({ strategies }) => {
   const totalInvestment = strategies.reduce((sum, s) => sum + s.investment, 0);
@@ -35,6 +36,14 @@ const StrategyPerformance = ({ strategies }) => {
       </div>
     </div>
   );
+};
+
+StrategyPerformance.propTypes = {
+  strategies: PropTypes.arrayOf(PropTypes.shape({
+    investment: PropTypes.number.isRequired,
+    return: PropTypes.number.isRequired,
+    status: PropTypes.string.isRequired
+  })).isRequired
 };
 
 export default StrategyPerformance;

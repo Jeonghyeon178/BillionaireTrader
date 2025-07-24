@@ -1,7 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import ErrorState from '../common/ErrorState';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
+
+/**
+ * @typedef {Object} HoldingData
+ * @property {string} ovrs_stck_evlu_amt - 해외주식 평가금액
+ * @property {string} ord_psbl_qty - 주문 가능 수량
+ * @property {string} now_pric2 - 현재가격
+ * @property {string} ovrs_pdno - 해외상품번호 (종목코드)
+ * @property {string} ovrs_item_name - 해외종목명
+ */
+
+/**
+ * @typedef {Object} PortfolioApiResponse
+ * @property {Object} stock_balance_res
+ * @property {Object} stock_balance_res.output2
+ * @property {string} stock_balance_res.output2.tot_evlu_pfls_amt
+ * @property {HoldingData[]} stock_balance_res.output1
+ * @property {Object} cash_balance_res
+ * @property {Array} cash_balance_res.output
+ * @property {string} cash_balance_res.output[].frcr_dncl_amt1
+ */
 
 const PortfolioOverview = () => {
   const [portfolioData, setPortfolioData] = useState(null);
@@ -9,14 +30,19 @@ const PortfolioOverview = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchPortfolioData();
+    // Properly handle the promise from fetchPortfolioData
+    fetchPortfolioData().catch(error => {
+      console.error('Failed to fetch portfolio data on mount:', error);
+    });
   }, []);
 
   const fetchPortfolioData = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/account`);
-      setPortfolioData(response.data);
+      /** @type {PortfolioApiResponse} */
+      const data = response.data;
+      setPortfolioData(data);
       setError(null);
     } catch (error) {
       console.error('포트폴리오 데이터 가져오기 실패:', error);
@@ -29,8 +55,8 @@ const PortfolioOverview = () => {
   const calculatePortfolioSummary = () => {
     if (!portfolioData) return null;
 
-    const stockValue = parseFloat(portfolioData.stock_balance_res.output2.tot_evlu_pfls_amt || 0);
-    const cashValue = parseFloat(portfolioData.cash_balance_res.output[0]?.frcr_dncl_amt1 || 0);
+    const stockValue = parseFloat(portfolioData.stock_balance_res?.output2?.tot_evlu_pfls_amt || 0);
+    const cashValue = parseFloat(portfolioData.cash_balance_res?.output?.[0]?.frcr_dncl_amt1 || 0);
     const totalValue = stockValue + cashValue;
 
     return {
@@ -50,6 +76,13 @@ const PortfolioOverview = () => {
     }).format(amount);
   };
 
+  // Handle retry button click
+  const handleRetry = () => {
+    fetchPortfolioData().catch(error => {
+      console.error('Failed to retry fetching portfolio data:', error);
+    });
+  };
+
   if (loading) {
     return (
       <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 h-64 flex items-center justify-center">
@@ -62,20 +95,7 @@ const PortfolioOverview = () => {
   }
 
   if (error) {
-    return (
-      <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 h-64 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-400 mb-2">⚠️</p>
-          <p className="text-red-400 text-sm">{error}</p>
-          <button 
-            onClick={fetchPortfolioData}
-            className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-colors"
-          >
-            다시 시도
-          </button>
-        </div>
-      </div>
-    );
+    return <ErrorState message={error} onRetry={handleRetry} />;
   }
 
   const summary = calculatePortfolioSummary();
@@ -151,28 +171,31 @@ const PortfolioOverview = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {holdings.map((holding, index) => {
-              const currentValue = parseFloat(holding.ovrs_stck_evlu_amt || 0);
-              const quantity = parseInt(holding.ord_psbl_qty || 0);
-              const currentPrice = parseFloat(holding.now_pric2 || 0);
+            {holdings.map((/** @type {HoldingData} */ holding, index) => {
+              // Provide fallback values for potentially undefined properties
+              const currentValue = parseFloat(holding?.ovrs_stck_evlu_amt || '0');
+              const quantity = parseInt(holding?.ord_psbl_qty || '0');
+              const currentPrice = parseFloat(holding?.now_pric2 || '0');
+              const stockCode = holding?.ovrs_pdno || 'N/A';
+              const stockName = holding?.ovrs_item_name || 'Unknown Stock';
               const percentage = summary?.totalValue > 0 ? (currentValue / summary.totalValue) * 100 : 0;
 
               return (
-                <div key={index} className="bg-slate-700 rounded-lg p-4">
+                <div key={`${stockCode}-${index}`} className="bg-slate-700 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
                           <span className="text-blue-400 font-bold text-sm">
-                            {holding.ovrs_pdno.substring(0, 2)}
+                            {stockCode.length >= 2 ? stockCode.substring(0, 2) : stockCode}
                           </span>
                         </div>
                         <div>
                           <h5 className="text-white font-semibold">
-                            {holding.ovrs_item_name}
+                            {stockName}
                           </h5>
                           <p className="text-slate-400 text-sm">
-                            {holding.ovrs_pdno}
+                            {stockCode}
                           </p>
                         </div>
                       </div>
@@ -198,5 +221,9 @@ const PortfolioOverview = () => {
     </div>
   );
 };
+
+// PortfolioOverview doesn't accept any props, so no PropTypes needed
+// But we'll add an empty propTypes for consistency
+PortfolioOverview.propTypes = {};
 
 export default PortfolioOverview;

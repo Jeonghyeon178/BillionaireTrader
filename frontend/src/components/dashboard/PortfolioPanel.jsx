@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import AssetAllocationChart from '../portfolio/AssetAllocationChart';
 import TopHoldings from '../portfolio/TopHoldings';
 import PerformanceMetrics from '../portfolio/PerformanceMetrics';
@@ -95,6 +96,15 @@ const PortfolioPanel = ({ portfolioData = {} }) => {
       </div>
     </div>
   );
+};
+
+PortfolioPanel.propTypes = {
+  portfolioData: PropTypes.shape({
+    portfolioValue: PropTypes.number,
+    availableCash: PropTypes.number,
+    totalReturn: PropTypes.number,
+    todayReturn: PropTypes.number
+  })
 };
 
 export default PortfolioPanel;

@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import axios from "axios";
+
+// Components
 import Navbar from "../components/Navbar";
 import DarkHeroDashboard from "../components/dashboard/DarkHeroDashboard";
 import DarkMarketCard from "../components/market/DarkMarketCard";
@@ -6,335 +9,417 @@ import InteractiveChart from "../components/charts/InteractiveChart";
 import PortfolioOverview from "../components/portfolio/PortfolioOverview";
 import Container from "../components/common/Container";
 import Section from "../components/common/Section";
-import axios from "axios";
+import StockSearch from "../components/search/StockSearch";
+import ErrorState from "../components/common/ErrorState";
 
-// 환경변수에서 API 기본 URL 가져오기
+// Constants and Utils
+import { APP_CONSTANTS, API_ENDPOINTS, CHART_ENDPOINTS } from '../constants/appConstants';
+import { logger, performanceLogger } from '../utils/logger';
+import { transformChartData, generateDummyChartData } from '../utils/chartUtils';
+import {
+  calculateTotalReturn,
+  calculateTodayReturn,
+  calculateAlertCount,
+  parseUSDValues,
+  convertToKRW,
+  getDefaultPortfolioData
+} from '../utils/portfolioUtils';
+import {
+  normalizeSchedulerStatus,
+  getSchedulerAction,
+  getExpectedStatus,
+  retrySchedulerStatusCheck,
+  createSchedulerErrorMessage
+} from '../utils/schedulerUtils';
+
+// API Base URL
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
-const MainPage = () => {
-  const [cardData, setCardData] = useState([]);
-  const [chartData, setChartData] = useState([]); // 차트용 데이터 추가
-  const [loading, setLoading] = useState(true);
-  const [selectedCard, setSelectedCard] = useState('COMP');
-  const [usdKrwRate, setUsdKrwRate] = useState(1300); // USD/KRW 환율
-  const [schedulerStatus, setSchedulerStatus] = useState(null);
-  const [isToggling, setIsToggling] = useState(false); // 토글 중 상태
-  
-  // Hero Dashboard 데이터
-  const [portfolioData, setPortfolioData] = useState({
-    totalReturn: 0,
-    todayReturn: 0,
-    portfolioValue: 0,
-    availableCash: 0,
-    alertCount: 0,
-    holdingsCount: 0,
-    lastUpdated: new Date()
-  });
+// Initial state constants
+const INITIAL_PORTFOLIO_DATA = {
+  totalReturn: 0,
+  todayReturn: 0,
+  portfolioValue: 0,
+  availableCash: 0,
+  alertCount: 0,
+  holdingsCount: 0,
+  lastUpdated: new Date()
+};
 
-  const fetchSchedulerStatus = async () => {
+const INITIAL_UI_STATE = {
+  loading: true,
+  isToggling: false,
+  selectedCard: APP_CONSTANTS.DEFAULT_SELECTED_CARD,
+  selectedStock: null,
+  chartTitle: APP_CONSTANTS.DEFAULT_CHART_TITLE
+};
+
+const MainPage = () => {
+  // State management - consolidated for better performance
+  const [uiState, setUiState] = useState(INITIAL_UI_STATE);
+  const [cardData, setCardData] = useState([]);
+  const [chartData, setChartData] = useState([]);
+  const [portfolioData, setPortfolioData] = useState(INITIAL_PORTFOLIO_DATA);
+  const [usdKrwRate, setUsdKrwRate] = useState(APP_CONSTANTS.DEFAULT_USD_KRW_RATE);
+  const [schedulerStatus, setSchedulerStatus] = useState(null);
+  const [schedulerError, setSchedulerError] = useState(null);
+
+  // Memoized market names to prevent re-renders
+  const marketNames = useMemo(() => APP_CONSTANTS.MARKET_NAMES, []);
+
+  /**
+   * Handle React 18 batch update for scheduler status
+   * @param {string} normalizedStatus - The normalized status
+   * @param {string} prevStatus - Previous status
+   */
+  const handleSchedulerStatusUpdate = useCallback((normalizedStatus, prevStatus) => {
+    if (prevStatus !== normalizedStatus) {
+      // React 18 batch update consideration
+      setTimeout(() => {
+        setSchedulerStatus(current => current !== normalizedStatus ? normalizedStatus : current);
+      }, APP_CONSTANTS.REACT_BATCH_UPDATE_DELAY);
+      return normalizedStatus;
+    }
+    return prevStatus;
+  }, []);
+
+  /**
+   * Fetch scheduler status with error handling
+   * @returns {Promise<string>} Normalized scheduler status
+   */
+  const fetchSchedulerStatus = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/scheduler/status`);
-      const statusText = String(res.data).trim();
+      performanceLogger.time('fetchSchedulerStatus');
+      const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.SCHEDULER.STATUS}`);
+      const normalizedStatus = normalizeSchedulerStatus(response.data);
       
-      let normalizedStatus;
-      if (statusText.includes("비활성화됨")) {
-        normalizedStatus = "DISABLED";
-      } else if (statusText.includes("활성화됨")) {
-        normalizedStatus = "ENABLED";
-      } else {
-        normalizedStatus = "UNKNOWN";
-      }
-      
-      if (schedulerStatus !== normalizedStatus) {
-        setSchedulerStatus(normalizedStatus);
-        
-        // React 18 배치 업데이트 고려
-        setTimeout(() => {
-          setSchedulerStatus(prevStatus => {
-            if (prevStatus !== normalizedStatus) {
-              return normalizedStatus;
-            }
-            return prevStatus;
-          });
-        }, 100);
-      }
+      setSchedulerStatus(prevStatus => handleSchedulerStatusUpdate(normalizedStatus, prevStatus));
       
       return normalizedStatus;
-    } catch (e) {
-      console.error("스케줄러 상태 조회 실패:", e.message);
-      setSchedulerStatus("UNKNOWN");
-      return "UNKNOWN";
-    }
-  };
-
-  const toggleScheduler = async () => {
-    if (isToggling) {
-      return;
-    }
-
-    try {
-      setIsToggling(true);
-      
-      const isCurrentlyEnabled = schedulerStatus === 'ENABLED';
-      const action = isCurrentlyEnabled ? "disable" : "enable";
-      
-      const response = await axios.post(`${API_BASE_URL}/scheduler/${action}`);
-      
-      if (response.status === 200) {
-        // 백엔드 처리 완료를 위한 대기 시간
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const actualStatus = await fetchSchedulerStatus();
-        const expectedStatus = action === 'enable' ? 'ENABLED' : 'DISABLED';
-        const isExpectedResult = actualStatus === expectedStatus;
-        
-        if (!isExpectedResult) {
-          // 최대 3번 재시도
-          let retryCount = 0;
-          const maxRetries = 3;
-          
-          while (retryCount < maxRetries) {
-            retryCount++;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            const retryStatus = await fetchSchedulerStatus();
-            if (retryStatus === expectedStatus) {
-              break;
-            }
-            
-            if (retryCount === maxRetries) {
-              alert('상태 변경이 완료되지 않았습니다. 페이지를 새로고침해주세요.');
-            }
-          }
-        }
-        
-        // 포트폴리오 데이터도 새로고침
-        await fetchPortfolioData();
-      }
     } catch (error) {
-      console.error('스케줄러 토글 실패:', error.response?.data || error.message);
-      
-      // 에러 발생 시 현재 상태 재확인
-      await fetchSchedulerStatus();
-      
-      const actionText = schedulerStatus === 'ENABLED' ? '비활성화' : '활성화';
-      alert(`자동매매 ${actionText}에 실패했습니다.\n오류: ${error.response?.data || error.message}`);
+      logger.error("스케줄러 상태 조회 실패:", error.message);
+      setSchedulerStatus(APP_CONSTANTS.SCHEDULER_STATUS.UNKNOWN);
+      return APP_CONSTANTS.SCHEDULER_STATUS.UNKNOWN;
     } finally {
-      setIsToggling(false);
+      performanceLogger.timeEnd('fetchSchedulerStatus');
     }
-  };
+  }, [handleSchedulerStatusUpdate]);
 
-  // USD/KRW 환율 가져오기
-  const fetchUsdKrwRate = async () => {
+  /**
+   * Fetch USD/KRW exchange rate
+   */
+  const fetchUsdKrwRate = useCallback(async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/indices/usd-krw`);
+      const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.INDICES.USD_KRW}`);
       const latestData = response.data[response.data.length - 1];
-      if (latestData && latestData.price) {
+      if (latestData?.price) {
         setUsdKrwRate(latestData.price);
       }
     } catch (error) {
-      console.error("USD/KRW 환율 가져오기 실패:", error);
-      // 실패 시 기본값 1300 유지
+      logger.error("USD/KRW 환율 가져오기 실패:", error);
+      // Keep default rate on failure
     }
-  };
+  }, []);
 
+  /**
+   * Extract data from account API response
+   * @param {AccountData} accountData - Account data from API
+   * @returns {Object} Extracted data
+   */
+  const extractAccountData = useCallback((accountData) => {
+    // Type-safe property access with fallbacks
+    const stockBalanceData = accountData?.stock_balance_res?.output2 || {};
+    const cashBalanceData = accountData?.cash_balance_res?.output?.[0] || {};
+    const holdings = accountData?.stock_balance_res?.output1 || [];
+    
+    return { stockBalanceData, cashBalanceData, holdings };
+  }, []);
 
-  // 포트폴리오 데이터 가져오기 함수
-  const fetchPortfolioData = async () => {
+  /**
+   * Fetch and process portfolio data
+   * @returns {Promise<void>}
+   */
+  const fetchPortfolioData = useCallback(async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/account`);
+      performanceLogger.time('fetchPortfolioData');
+      const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.ACCOUNT}`);
+      /** @type {AccountData} */
       const accountData = response.data;
       
-      // 주식 잔고 데이터
-      const stockBalanceData = accountData.stock_balance_res.output2;
-      const cashBalanceData = accountData.cash_balance_res.output[0];
-      const holdings = accountData.stock_balance_res.output1 || [];
+      // Extract data from API response
+      const { stockBalanceData, cashBalanceData, holdings } = extractAccountData(accountData);
       
-      // USD 기준 값들
-      const totalStockValueUSD = parseFloat(stockBalanceData.tot_evlu_pfls_amt || 0); // 총 평가손익금액
-      const totalPurchaseValueUSD = parseFloat(stockBalanceData.pchs_amt_smtl_amt || 0); // 매입금액 합계
-      const cashValueUSD = parseFloat(cashBalanceData.frcr_dncl_amt1 || 0); // 외화 예수금
+      // Parse USD values
+      const usdValues = parseUSDValues(stockBalanceData, cashBalanceData);
       
-      // USD를 KRW로 환산 (실시간 환율 사용)
-      const usdToKrw = usdKrwRate;
-      const totalStockValue = totalStockValueUSD * usdToKrw;
-      const totalPurchaseValue = totalPurchaseValueUSD * usdToKrw;
-      const cashValue = cashValueUSD * usdToKrw;
-      const totalPortfolioValue = totalStockValue + cashValue;
+      // Convert to KRW
+      const krwValues = convertToKRW(usdValues, usdKrwRate);
       
-      // 수익률 계산
-      let totalReturnPercent = 0;
-      if (totalPurchaseValue > 0) {
-        const totalProfitLoss = totalStockValue - totalPurchaseValue;
-        totalReturnPercent = (totalProfitLoss / totalPurchaseValue) * 100;
-      }
+      // Calculate returns
+      const totalReturn = calculateTotalReturn(krwValues.totalStockValue, krwValues.totalPurchaseValue);
+      const todayReturn = calculateTodayReturn(holdings, usdKrwRate, krwValues.totalStockValue);
       
-      // 오늘 수익률 계산 (전일 대비 변동률)
-      let todayReturnPercent = 0;
-      let totalTodayProfitLoss = 0;
-      
-      holdings.forEach(holding => {
-        const currentPrice = parseFloat(holding.ovrs_now_pric1 || 0);
-        const prevPrice = parseFloat(holding.prpr || currentPrice); // 전일종가 (없으면 현재가로 대체)
-        const quantity = parseFloat(holding.ovrs_cblc_qty || 0);
-        
-        if (prevPrice > 0 && quantity > 0) {
-          const dailyChange = (currentPrice - prevPrice) * quantity * usdToKrw;
-          totalTodayProfitLoss += dailyChange;
-        }
-      });
-      
-      if (totalStockValue > 0) {
-        todayReturnPercent = (totalTodayProfitLoss / totalStockValue) * 100;
-      }
-      
-      
-      // 알림 개수 계산 (손실이 -5% 이상이면 알림)
-      let alertCount = 0;
-      if (totalReturnPercent < -5) alertCount++;
-      if (todayReturnPercent < -3) alertCount++;
+      // Calculate alerts
+      const alertCount = calculateAlertCount(totalReturn, todayReturn);
       
       setPortfolioData({
-        totalReturn: totalReturnPercent,
-        todayReturn: todayReturnPercent,
-        portfolioValue: totalPortfolioValue,
-        availableCash: cashValue,
+        totalReturn,
+        todayReturn,
+        portfolioValue: krwValues.totalPortfolioValue,
+        availableCash: krwValues.cashValue,
         alertCount,
         holdingsCount: holdings.length,
         lastUpdated: new Date()
       });
       
     } catch (error) {
-      console.error("포트폴리오 데이터 가져오기 실패:", error);
-      // 에러 발생 시 기본값 설정
-      setPortfolioData({
-        totalReturn: 0,
-        todayReturn: 0,
-        portfolioValue: 0,
-        availableCash: 0,
-        alertCount: 1, // API 연결 실패 알림
-        holdingsCount: 0,
-        lastUpdated: new Date()
-      });
+      logger.error("포트폴리오 데이터 가져오기 실패:", error);
+      setPortfolioData(getDefaultPortfolioData());
+    } finally {
+      performanceLogger.timeEnd('fetchPortfolioData');
     }
-  };
+  }, [usdKrwRate, extractAccountData]);
 
-  // 차트 데이터 가져오기 함수
-  const fetchChartData = async (ticker) => {
+  /**
+   * Process successful scheduler toggle
+   * @param {string} action - The action performed
+   * @returns {Promise<void>}
+   */
+  const processSuccessfulToggle = useCallback(async (action) => {
+    // Wait for backend processing
+    await new Promise(resolve => setTimeout(resolve, APP_CONSTANTS.SCHEDULER_TIMEOUT));
+    
+    const expectedStatus = getExpectedStatus(action);
+    const actualStatus = await fetchSchedulerStatus();
+    
+    if (actualStatus !== expectedStatus) {
+      const success = await retrySchedulerStatusCheck(fetchSchedulerStatus, expectedStatus);
+      if (!success) {
+        setSchedulerError('상태 변경이 완료되지 않았습니다. 페이지를 새로고침해주세요.');
+      }
+    }
+  }, [fetchSchedulerStatus]);
+
+  /**
+   * Handle scheduler toggle error
+   * @param {Error} error - The error object
+   * @returns {Promise<void>}
+   */
+  const handleToggleError = useCallback(async (error) => {
+    logger.error('스케줄러 토글 실패:', error.response?.data || error.message);
+    
+    // Re-fetch current status on error - don't await to avoid blocking
+    fetchSchedulerStatus().catch(statusError => {
+      logger.error('Failed to re-fetch scheduler status:', statusError);
+    });
+    
+    const action = getSchedulerAction(schedulerStatus);
+    const errorMessage = createSchedulerErrorMessage(action, error.response?.data || error.message);
+    setSchedulerError(errorMessage);
+  }, [schedulerStatus, fetchSchedulerStatus]);
+
+  /**
+   * Handle scheduler error retry
+   * @returns {void}
+   */
+  const handleSchedulerErrorRetry = useCallback(() => {
+    setSchedulerError(null);
+    // Retry the scheduler status fetch
+    fetchSchedulerStatus().catch(error => {
+      logger.error('Scheduler status retry failed:', error);
+      setSchedulerError('스케줄러 상태를 다시 가져올 수 없습니다.');
+    });
+  }, [fetchSchedulerStatus]);
+
+  /**
+   * Handle scheduler toggle with proper error handling and retries
+   * @returns {Promise<void>}
+   */
+  const handleSchedulerToggle = useCallback(async () => {
+    if (uiState.isToggling) return;
+
     try {
-      let endpoint;
-      switch(ticker) {
-        case 'COMP':
-          endpoint = '/indices/nasdaq';
-          break;
-        case '.DJI':
-          endpoint = '/indices/dow-jones';
-          break;
-        case 'SPX':
-          endpoint = '/indices/snp500';
-          break;
-        case 'FX@KRW':
-          endpoint = '/indices/usd-krw';
-          break;
-        default:
-          endpoint = '/indices/nasdaq';
+      setUiState(/** @type {function(UIState): UIState} */ (prev => ({ ...prev, isToggling: true })));
+      
+      const action = getSchedulerAction(schedulerStatus);
+      const endpoint = action === 'enable' 
+        ? API_ENDPOINTS.SCHEDULER.ENABLE 
+        : API_ENDPOINTS.SCHEDULER.DISABLE;
+      
+      performanceLogger.time(`schedulerToggle_${action}`);
+      const response = await axios.post(`${API_BASE_URL}${endpoint}`);
+      
+      if (response.status === 200) {
+        await processSuccessfulToggle(action);
+        // Refresh portfolio data after successful toggle - don't await to avoid blocking UI
+        fetchPortfolioData().catch(error => {
+          logger.error('Portfolio data refresh failed after scheduler toggle:', error);
+        });
       }
-      
-      const response = await axios.get(`${API_BASE_URL}${endpoint}`);
-      const apiData = response.data;
-      
-      // API 데이터를 차트 형식으로 변환
-      const chartFormattedData = apiData.map((item, index) => {
-        // API에서 date 필드를 사용하여 timestamp 생성
-        const dateObj = item.date ? new Date(item.date) : new Date(Date.now() - (apiData.length - index) * 24 * 60 * 60 * 1000);
-        
-        return {
-          date: item.date || dateObj.toISOString().split('T')[0],
-          timestamp: dateObj.getTime(),
-          price: parseFloat(item.price) || 0,
-          volume: Math.floor(Math.random() * 1000000) + 500000, // Placeholder volume data
-          ticker: ticker
-        };
-      });
-      
-      setChartData(chartFormattedData);
     } catch (error) {
-      console.error("차트 데이터 가져오기 실패:", ticker, error);
-      setChartData([]); // 실패 시 빈 배열로 설정
+      await handleToggleError(error);
+    } finally {
+      setUiState(/** @type {function(UIState): UIState} */ (prev => ({ ...prev, isToggling: false })));
+      performanceLogger.timeEnd(`schedulerToggle_${getSchedulerAction(schedulerStatus)}`);
     }
-  };
+  }, [uiState.isToggling, schedulerStatus, processSuccessfulToggle, handleToggleError, fetchPortfolioData]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        const indexResponses = await Promise.all([
-          axios.get(`${API_BASE_URL}/indices/nasdaq`),
-          axios.get(`${API_BASE_URL}/indices/dow-jones`),
-          axios.get(`${API_BASE_URL}/indices/snp500`),
-          axios.get(`${API_BASE_URL}/indices/usd-krw`)
-        ]);
-
-        const cardData = indexResponses.map(response => {
-          const data = response.data;
-          return data.length > 0 ? data[data.length - 1] : null;
-        }).filter(item => item !== null);
-        
-        setCardData(cardData);
-        
-        // 기본 선택된 카드의 차트 데이터 가져오기
-        if (cardData.length > 0) {
-          fetchChartData(selectedCard);
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-    fetchSchedulerStatus();
-    fetchUsdKrwRate(); // 환율 먼저 가져오기
+  /**
+   * Fetch chart data for indices
+   */
+  const fetchIndexChartData = useCallback(async (ticker) => {
+    try {
+      const endpoint = CHART_ENDPOINTS[ticker] || API_ENDPOINTS.INDICES.NASDAQ;
+      const response = await axios.get(`${API_BASE_URL}${endpoint}`);
+      const transformedData = transformChartData(response.data, ticker);
+      setChartData(transformedData);
+    } catch (error) {
+      logger.error("차트 데이터 가져오기 실패:", ticker, error);
+      setChartData([]);
+    }
   }, []);
 
-  // 환율이 업데이트되면 포트폴리오 데이터 다시 가져오기
-  useEffect(() => {
-    if (usdKrwRate > 0 && !loading) {
-      fetchPortfolioData();
+  /**
+   * Fetch chart data for individual stocks
+   */
+  const fetchStockChartData = useCallback(async (symbol) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.STOCKS.CHART(symbol)}`);
+      const transformedData = transformChartData(response.data, symbol);
+      setChartData(transformedData);
+    } catch (error) {
+      logger.error(`종목 ${symbol} 차트 데이터 가져오기 실패:`, error);
+      // Fallback to dummy data for development
+      const dummyData = generateDummyChartData(symbol);
+      setChartData(dummyData);
     }
-  }, [usdKrwRate]);
+  }, []);
 
-  // 30초마다 데이터 자동 새로고침 (토글 중일 때는 스케줄러 상태 조회 건너뛰기)
+  /**
+   * Handle market card selection
+   * @param {string} ticker - Selected ticker symbol
+   */
+  const handleCardClick = useCallback((ticker) => {
+    setUiState(/** @type {function(UIState): UIState} */ (prev => ({
+      ...prev,
+      selectedCard: ticker,
+      selectedStock: null,
+      chartTitle: APP_CONSTANTS.DEFAULT_CHART_TITLE
+    })));
+  }, []);
+
+  /**
+   * Handle stock search selection
+   * @param {Object} stock - Selected stock object
+   */
+  const handleStockSelect = useCallback((stock) => {
+    setUiState(/** @type {function(UIState): UIState} */ (prev => ({
+      ...prev,
+      selectedStock: stock,
+      selectedCard: null,
+      chartTitle: `${stock.symbol} - ${stock.name}`
+    })));
+    // Don't await to avoid blocking UI
+    fetchStockChartData(stock.symbol).catch(error => {
+      logger.error('Failed to fetch stock chart data:', error);
+    });
+  }, [fetchStockChartData]);
+
+  /**
+   * Initial data fetch
+   * @returns {Promise<void>}
+   */
+  const fetchInitialData = useCallback(async () => {
+    try {
+      setUiState(/** @type {function(UIState): UIState} */ (prev => ({ ...prev, loading: true })));
+      
+      const indexResponses = await Promise.all([
+        axios.get(`${API_BASE_URL}${API_ENDPOINTS.INDICES.NASDAQ}`),
+        axios.get(`${API_BASE_URL}${API_ENDPOINTS.INDICES.DOW_JONES}`),
+        axios.get(`${API_BASE_URL}${API_ENDPOINTS.INDICES.SNP500}`),
+        axios.get(`${API_BASE_URL}${API_ENDPOINTS.INDICES.USD_KRW}`)
+      ]);
+
+      const processedCardData = indexResponses
+        .map(response => {
+          const data = response.data;
+          return data.length > 0 ? data[data.length - 1] : null;
+        })
+        .filter(Boolean);
+      
+      setCardData(processedCardData);
+      
+      // Load default chart data - don't await to avoid blocking
+      if (processedCardData.length > 0) {
+        fetchIndexChartData(uiState.selectedCard).catch(error => {
+          logger.error('Failed to fetch initial chart data:', error);
+        });
+      }
+    } catch (error) {
+      logger.error("초기 데이터 가져오기 실패:", error);
+    } finally {
+      setUiState(/** @type {function(UIState): UIState} */ (prev => ({ ...prev, loading: false })));
+    }
+  }, [uiState.selectedCard, fetchIndexChartData]);
+
+  // Effects - Initial data loading
+  useEffect(() => {
+    // Don't await promises to prevent blocking initial render
+    fetchInitialData().catch(error => {
+      logger.error('Initial data fetch failed:', error);
+    });
+    
+    fetchSchedulerStatus().catch(error => {
+      logger.error('Initial scheduler status fetch failed:', error);
+    });
+    
+    fetchUsdKrwRate().catch(error => {
+      logger.error('Initial USD/KRW rate fetch failed:', error);
+    });
+  }, [fetchInitialData, fetchSchedulerStatus, fetchUsdKrwRate]);
+
+  // Update portfolio data when exchange rate changes
+  useEffect(() => {
+    if (usdKrwRate > 0 && !uiState.loading) {
+      // Don't await to prevent blocking UI
+      fetchPortfolioData().catch(error => {
+        logger.error('Failed to fetch portfolio data on exchange rate change:', error);
+      });
+    }
+  }, [usdKrwRate, uiState.loading, fetchPortfolioData]);
+
+  // Auto-refresh data every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      if (!loading) {
-        fetchPortfolioData();
+      if (!uiState.loading) {
+        // Don't await promises to prevent blocking UI
+        fetchPortfolioData().catch(error => {
+          logger.error('Auto-refresh portfolio data failed:', error);
+        });
         
-        // 토글 중이 아닐 때만 스케줄러 상태 조회
-        if (!isToggling) {
-          fetchSchedulerStatus();
+        if (!uiState.isToggling) {
+          fetchSchedulerStatus().catch(error => {
+            logger.error('Auto-refresh scheduler status failed:', error);
+          });
         }
       }
-    }, 30000); // 30초
+    }, APP_CONSTANTS.REFRESH_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [loading, isToggling]);
+  }, [uiState.loading, uiState.isToggling, fetchPortfolioData, fetchSchedulerStatus]);
 
-
-  // 선택된 카드가 변경될 때마다 차트 데이터 업데이트
+  // Update chart when selected card changes
   useEffect(() => {
-    if (!loading && selectedCard) {
-      fetchChartData(selectedCard);
+    if (!uiState.loading && uiState.selectedCard) {
+      // Don't await to prevent blocking UI
+      fetchIndexChartData(uiState.selectedCard).catch(error => {
+        logger.error('Failed to fetch chart data on card change:', error);
+      });
     }
-  }, [selectedCard, loading]);
+  }, [uiState.selectedCard, uiState.loading, fetchIndexChartData]);
 
-  const handleCardClick = (ticker) => {
-    setSelectedCard(ticker);
-  };
-
-  if (loading) {
+  // Loading state
+  if (uiState.loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -349,6 +434,15 @@ const MainPage = () => {
     <div className="min-h-screen bg-slate-900 text-gray-300">
       <Navbar />
       
+      {/* Scheduler Error State */}
+      {schedulerError && (
+        <div className="w-full bg-slate-800 border-b border-slate-600">
+          <Container className="py-4">
+            <ErrorState message={schedulerError} onRetry={handleSchedulerErrorRetry} />
+          </Container>
+        </div>
+      )}
+      
       <main className="w-full">
         <Container className="py-6">
           {/* Hero Dashboard */}
@@ -361,8 +455,8 @@ const MainPage = () => {
             alertCount={portfolioData.alertCount}
             holdingsCount={portfolioData.holdingsCount}
             lastUpdated={portfolioData.lastUpdated}
-            isToggling={isToggling}
-            onToggleScheduler={toggleScheduler}
+            isToggling={uiState.isToggling}
+            onToggleScheduler={handleSchedulerToggle}
           />
 
           {/* Market Overview */}
@@ -372,34 +466,39 @@ const MainPage = () => {
             icon="📊"
             contentClassName="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
           >
-            {cardData.map((data, index) => {
-              const names = ['NASDAQ', 'DOW JONES', 'S&P 500', 'USD/KRW'];
-              return (
-                <DarkMarketCard
-                  key={`${data.ticker}-${index}`}
-                  ticker={data.ticker}
-                  name={names[index]}
-                  price={data.price}
-                  change={data.price}
-                  changePercent={data.rate}
-                  isActive={selectedCard === data.ticker}
-                  onClick={() => handleCardClick(data.ticker)}
-                />
-              );
-            })}
+            {cardData.map((data, index) => (
+              <DarkMarketCard
+                key={`${data.ticker}-${index}`}
+                ticker={data.ticker}
+                name={marketNames[index]}
+                price={data.price}
+                change={data.price}
+                changePercent={data.rate}
+                isActive={uiState.selectedCard === data.ticker}
+                onClick={() => handleCardClick(data.ticker)}
+              />
+            ))}
           </Section>
 
           {/* Interactive Chart Section */}
           <Section 
-            title="인터랙티브 차트" 
+            title={uiState.chartTitle}
             icon="📈"
             variant="transparent"
             className="mb-6"
           >
+            {/* Stock Search */}
+            <div className="mb-4">
+              <StockSearch 
+                onStockSelect={handleStockSelect}
+                className="max-w-md"
+              />
+            </div>
+            
             <InteractiveChart 
               data={chartData}
-              selectedTicker={selectedCard}
-              height={400}
+              selectedTicker={uiState.selectedStock ? uiState.selectedStock.symbol : uiState.selectedCard}
+              height={APP_CONSTANTS.DEFAULT_CHART_HEIGHT}
             />
           </Section>
 

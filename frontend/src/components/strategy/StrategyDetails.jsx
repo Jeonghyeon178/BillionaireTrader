@@ -1,6 +1,7 @@
 import React from 'react';
 import { getBuyStrategies, getSellStrategies } from '../../utils/tradingUtils';
 
+// StrategyDetails component doesn't accept any props based on the current implementation
 const StrategyDetails = () => {
   const buyStrategies = getBuyStrategies();
   const sellStrategies = getSellStrategies();

@@ -1,8 +1,26 @@
 import React from 'react';
+import PropTypes from 'prop-types';
+
+// Move StatItem component outside of parent component
+const StatItem = ({ label, value, color = 'text-white' }) => (
+  <div className="text-center">
+    <p className="text-slate-400 text-xs">{label}</p>
+    <p className={`font-bold ${color}`}>{value}</p>
+  </div>
+);
+
+StatItem.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  color: PropTypes.string
+};
+
+StatItem.defaultProps = {
+  color: 'text-white'
+};
 
 const ChartStats = ({ 
   data = [], 
-  chartColor = '#3b82f6',
   className = '',
   showVolume = false 
 }) => {
@@ -38,13 +56,6 @@ const ChartStats = ({
   const stats = calculateStats();
   const isPositive = parseFloat(stats.changePercent) >= 0;
 
-  const StatItem = ({ label, value, color = 'text-white' }) => (
-    <div className="text-center">
-      <p className="text-slate-400 text-xs">{label}</p>
-      <p className={`font-bold ${color}`}>{value}</p>
-    </div>
-  );
-
   return (
     <div className={`mt-4 grid gap-4 ${showVolume ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'} ${className}`}>
       <StatItem 
@@ -79,6 +90,21 @@ const ChartStats = ({
       )}
     </div>
   );
+};
+
+ChartStats.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.shape({
+    price: PropTypes.number,
+    volume: PropTypes.number
+  })),
+  className: PropTypes.string,
+  showVolume: PropTypes.bool
+};
+
+ChartStats.defaultProps = {
+  data: [],
+  className: '',
+  showVolume: false
 };
 
 export default ChartStats;

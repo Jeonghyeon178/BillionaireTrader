@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const ActionButton = ({
   children,
@@ -38,6 +39,24 @@ const ActionButton = ({
       {loading ? '⏳ 처리중...' : children}
     </button>
   );
+};
+
+ActionButton.propTypes = {
+  children: PropTypes.node,
+  onClick: PropTypes.func,
+  variant: PropTypes.oneOf(['primary', 'secondary', 'success', 'danger', 'warning']),
+  disabled: PropTypes.bool,
+  loading: PropTypes.bool,
+  className: PropTypes.string
+};
+
+ActionButton.defaultProps = {
+  children: null,
+  onClick: undefined,
+  variant: 'secondary',
+  disabled: false,
+  loading: false,
+  className: ''
 };
 
 export default ActionButton;

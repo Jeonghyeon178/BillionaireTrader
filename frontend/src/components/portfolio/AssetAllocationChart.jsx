@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 const AssetAllocationChart = ({ data }) => {
   const total = data.reduce((sum, item) => sum + item.value, 0);
@@ -102,6 +103,13 @@ const AssetAllocationChart = ({ data }) => {
       </div>
     </div>
   );
+};
+
+AssetAllocationChart.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.shape({
+    name: PropTypes.string.isRequired,
+    value: PropTypes.number.isRequired
+  })).isRequired
 };
 
 export default AssetAllocationChart;

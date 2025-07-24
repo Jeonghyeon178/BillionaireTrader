@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import {
   XAxis,
   YAxis,
@@ -20,25 +21,24 @@ import {
   formatXAxisValue,
   getTickCount,
   filterDataByTimeRange
-} from './ChartUtils';
+} from '../../utils/chartUtils';
+
+// 시간 필터 옵션 (상수로 이동하여 최적화)
+const TIME_FILTERS = [
+  { key: '1D', label: '1일', days: 1 },
+  { key: '1W', label: '1주', days: 7 },
+  { key: '1M', label: '1개월', days: 30 },
+  { key: '1Y', label: '1년', days: 365 },
+  { key: 'ALL', label: '전체', days: null }
+];
 
 const InteractiveChart = ({ 
   data = [], 
   selectedTicker = 'COMP', 
-  height = 400,
-  showArea = true 
+  height = 400
 }) => {
   const [timeFilter, setTimeFilter] = useState('1M');
   const [filteredData, setFilteredData] = useState([]);
-
-  // 시간 필터 옵션
-  const timeFilters = [
-    { key: '1D', label: '1일', days: 1 },
-    { key: '1W', label: '1주', days: 7 },
-    { key: '1M', label: '1개월', days: 30 },
-    { key: '1Y', label: '1년', days: 365 },
-    { key: 'ALL', label: '전체', days: null }
-  ];
 
   // 데이터 필터링
   useEffect(() => {
@@ -47,7 +47,7 @@ const InteractiveChart = ({
       return;
     }
 
-    const filtered = filterDataByTimeRange(data, timeFilter, timeFilters);
+    const filtered = filterDataByTimeRange(data, timeFilter, TIME_FILTERS);
     setFilteredData(filtered);
   }, [data, timeFilter, selectedTicker]);
 
@@ -75,7 +75,7 @@ const InteractiveChart = ({
         <TimeFilter 
           timeFilter={timeFilter}
           onTimeFilterChange={setTimeFilter}
-          filters={timeFilters}
+          filters={TIME_FILTERS}
         />
       </div>
 
@@ -157,6 +157,18 @@ const InteractiveChart = ({
       />
     </div>
   );
+};
+
+InteractiveChart.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.object),
+  selectedTicker: PropTypes.string,
+  height: PropTypes.number
+};
+
+InteractiveChart.defaultProps = {
+  data: [],
+  selectedTicker: 'COMP',
+  height: 400
 };
 
 export default InteractiveChart;
