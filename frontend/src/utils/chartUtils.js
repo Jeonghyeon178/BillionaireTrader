@@ -86,20 +86,19 @@ export const transformChartData = (rawData, format = 'default') => {
   if (!rawData || !Array.isArray(rawData)) return [];
   
   return rawData.map(item => {
-    switch (format) {
-      case 'api':
-        return {
-          timestamp: item.date || item.timestamp,
-          price: Number(item.price || item.value || 0),
-          volume: Number(item.volume || 0)
-        };
-      default:
-        return {
-          timestamp: item.timestamp,
-          price: Number(item.price || 0),
-          volume: Number(item.volume || 0)
-        };
+    if (format === 'api') {
+      return {
+        timestamp: item.date || item.timestamp,
+        price: Number(item.price || item.value || 0),
+        volume: Number(item.volume || 0)
+      };
     }
+    
+    return {
+      timestamp: item.timestamp,
+      price: Number(item.price || 0),
+      volume: Number(item.volume || 0)
+    };
   }).filter(item => item.price > 0);
 };
 

@@ -8,7 +8,6 @@ const ChartContainer = ({
   loading = false,
   error = null,
   emptyMessage = "차트 데이터를 불러오는 중입니다...",
-  errorMessage = "API 연결을 확인해주세요",
   className = '',
   showRetryInfo = false
 }) => {
@@ -36,7 +35,7 @@ const ChartContainer = ({
         className={`bg-slate-800/50 rounded-lg p-4 ${className}`} 
         style={{ height: containerHeight }}
       >
-        <ErrorState message={error || "데이터를 불러올 수 없습니다"} showRetryInfo={showRetryInfo} />
+        <ErrorState message={error} showRetryInfo={showRetryInfo} />
       </div>
     );
   }
@@ -75,7 +74,6 @@ ChartContainer.propTypes = {
   loading: PropTypes.bool,
   error: PropTypes.string,
   emptyMessage: PropTypes.string,
-  errorMessage: PropTypes.string,
   className: PropTypes.string,
   showRetryInfo: PropTypes.bool
 };
@@ -86,7 +84,6 @@ ChartContainer.defaultProps = {
   loading: false,
   error: null,
   emptyMessage: "차트 데이터를 불러오는 중입니다...",
-  errorMessage: "API 연결을 확인해주세요",
   className: '',
   showRetryInfo: false
 };

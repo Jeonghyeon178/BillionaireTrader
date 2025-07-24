@@ -11,7 +11,7 @@ const CustomTooltip = ({
   formatLabel = null,
   className = ''
 }) => {
-  if (!active || !payload || !payload.length) {
+  if (!active || !payload?.length) {
     return null;
   }
 

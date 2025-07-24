@@ -43,7 +43,6 @@ const Section = ({
 Section.propTypes = {
   title: PropTypes.string,
   subtitle: PropTypes.string,
-  icon: PropTypes.string,
   children: PropTypes.node,
   className: PropTypes.string,
   headerClassName: PropTypes.string,
