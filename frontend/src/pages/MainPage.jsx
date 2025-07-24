@@ -47,7 +47,7 @@ const INITIAL_PORTFOLIO_DATA = {
 };
 
 const INITIAL_UI_STATE = {
-  loading: true,
+  loading: false,
   isToggling: false,
   selectedCard: APP_CONSTANTS.DEFAULT_SELECTED_CARD,
   selectedStock: null,
@@ -60,12 +60,46 @@ const MainPage = () => {
   const [cardData, setCardData] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [portfolioData, setPortfolioData] = useState(INITIAL_PORTFOLIO_DATA);
+  const [portfolioApiData, setPortfolioApiData] = useState(null); // Raw API data for PortfolioOverview
   const [usdKrwRate, setUsdKrwRate] = useState(APP_CONSTANTS.DEFAULT_USD_KRW_RATE);
   const [schedulerStatus, setSchedulerStatus] = useState(null);
   const [schedulerError, setSchedulerError] = useState(null);
+  const [chartLoading, setChartLoading] = useState(false);
+  
+  // Error tracking only - no auto-retry
+  const [errors, setErrors] = useState({
+    portfolio: null,
+    chart: null,
+    scheduler: null,
+    market: null
+  });
 
   // Memoized market names to prevent re-renders
   const marketNames = useMemo(() => APP_CONSTANTS.MARKET_NAMES, []);
+
+  /**
+   * Simple error logging - no auto-retry
+   * @param {string} errorType - Type of error (portfolio, chart, scheduler, market)
+   * @param {string} errorMessage - Error message to display
+   */
+  const handleError = useCallback((errorType, errorMessage) => {
+    setErrors(prev => ({
+      ...prev,
+      [errorType]: errorMessage
+    }));
+    logger.error(`${errorType} 에러:`, errorMessage);
+  }, []);
+
+  /**
+   * Clear specific error
+   * @param {string} errorType - Type of error to clear
+   */
+  const clearError = useCallback((errorType) => {
+    setErrors(prev => ({
+      ...prev,
+      [errorType]: null
+    }));
+  }, []);
 
   /**
    * Handle React 18 batch update for scheduler status
@@ -88,22 +122,36 @@ const MainPage = () => {
    * @returns {Promise<string>} Normalized scheduler status
    */
   const fetchSchedulerStatus = useCallback(async () => {
+
+    const timerId = `fetchSchedulerStatus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    let result;
+    
     try {
-      performanceLogger.time('fetchSchedulerStatus');
-      const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.SCHEDULER.STATUS}`);
-      const normalizedStatus = normalizeSchedulerStatus(response.data);
+      clearError('scheduler'); // Clear any existing errors
       
-      setSchedulerStatus(prevStatus => handleSchedulerStatusUpdate(normalizedStatus, prevStatus));
+      try {
+        performanceLogger.time(timerId);
+        
+        const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.SCHEDULER.STATUS}`);
+        result = normalizeSchedulerStatus(response.data);
+        
+        setSchedulerStatus(prevStatus => handleSchedulerStatusUpdate(result, prevStatus));
+      } finally {
+        try {
+          performanceLogger.timeEnd(timerId);
+        } catch (timerError) {
+          // Timer might not exist, ignore error
+        }
+      }
       
-      return normalizedStatus;
+      return result;
     } catch (error) {
       logger.error("스케줄러 상태 조회 실패:", error.message);
       setSchedulerStatus(APP_CONSTANTS.SCHEDULER_STATUS.UNKNOWN);
+      handleError('scheduler', '스케줄러 상태를 조회할 수 없습니다.');
       return APP_CONSTANTS.SCHEDULER_STATUS.UNKNOWN;
-    } finally {
-      performanceLogger.timeEnd('fetchSchedulerStatus');
     }
-  }, [handleSchedulerStatusUpdate]);
+  }, [handleSchedulerStatusUpdate, handleError, clearError]);
 
   /**
    * Fetch USD/KRW exchange rate
@@ -111,7 +159,9 @@ const MainPage = () => {
   const fetchUsdKrwRate = useCallback(async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.INDICES.USD_KRW}`);
-      const latestData = response.data[response.data.length - 1];
+      const result = response.data;
+      
+      const latestData = result[result.length - 1];
       if (latestData?.price) {
         setUsdKrwRate(latestData.price);
       }
@@ -140,11 +190,30 @@ const MainPage = () => {
    * @returns {Promise<void>}
    */
   const fetchPortfolioData = useCallback(async () => {
+
+    const requestId = 'portfolio-data';
+    
     try {
-      performanceLogger.time('fetchPortfolioData');
-      const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.ACCOUNT}`);
-      /** @type {AccountData} */
-      const accountData = response.data;
+      clearError('portfolio'); // Clear any existing errors
+      
+      const timerId = `fetchPortfolioData_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      let accountData;
+      
+      try {
+        performanceLogger.time(timerId);
+        
+        const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.ACCOUNT}`);
+        accountData = response.data;
+      } finally {
+        try {
+          performanceLogger.timeEnd(timerId);
+        } catch (timerError) {
+          // Timer might not exist, ignore error
+        }
+      }
+      
+      // Store raw API data for PortfolioOverview component
+      setPortfolioApiData(accountData);
       
       // Extract data from API response
       const { stockBalanceData, cashBalanceData, holdings } = extractAccountData(accountData);
@@ -175,10 +244,10 @@ const MainPage = () => {
     } catch (error) {
       logger.error("포트폴리오 데이터 가져오기 실패:", error);
       setPortfolioData(getDefaultPortfolioData());
-    } finally {
-      performanceLogger.timeEnd('fetchPortfolioData');
+      setPortfolioApiData(null);
+      handleError('portfolio', '포트폴리오 데이터를 불러올 수 없습니다.');
     }
-  }, [usdKrwRate, extractAccountData]);
+  }, [usdKrwRate, extractAccountData, handleError, clearError]);
 
   /**
    * Process successful scheduler toggle
@@ -267,33 +336,55 @@ const MainPage = () => {
   /**
    * Fetch chart data for indices
    */
-  const fetchIndexChartData = useCallback(async (ticker) => {
+  const fetchIndexChartData = useCallback(async (ticker, showLoading = false) => {
     try {
+      if (showLoading) {
+        setChartLoading(true);
+      }
+      clearError('chart'); // Clear any existing errors
+      
       const endpoint = CHART_ENDPOINTS[ticker] || API_ENDPOINTS.INDICES.NASDAQ;
       const response = await axios.get(`${API_BASE_URL}${endpoint}`);
-      const transformedData = transformChartData(response.data, ticker);
+      
+      const transformedData = transformChartData(response.data, 'api');
       setChartData(transformedData);
     } catch (error) {
       logger.error("차트 데이터 가져오기 실패:", ticker, error);
       setChartData([]);
+      handleError('chart', '차트 데이터를 불러올 수 없습니다.');
+    } finally {
+      if (showLoading) {
+        setChartLoading(false);
+      }
     }
-  }, []);
+  }, [handleError, clearError]);
 
   /**
    * Fetch chart data for individual stocks
    */
-  const fetchStockChartData = useCallback(async (symbol) => {
+  const fetchStockChartData = useCallback(async (symbol, showLoading = false) => {
     try {
+      if (showLoading) {
+        setChartLoading(true);
+      }
+      clearError('chart'); // Clear any existing errors
+      
       const response = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.STOCKS.CHART(symbol)}`);
-      const transformedData = transformChartData(response.data, symbol);
+      
+      const transformedData = transformChartData(response.data, 'api');
       setChartData(transformedData);
     } catch (error) {
       logger.error(`종목 ${symbol} 차트 데이터 가져오기 실패:`, error);
       // Fallback to dummy data for development
-      const dummyData = generateDummyChartData(symbol);
+      const dummyData = generateDummyChartData(30, 100);
       setChartData(dummyData);
+      handleError('chart', `종목 ${symbol} 차트 데이터를 불러올 수 없습니다.`);
+    } finally {
+      if (showLoading) {
+        setChartLoading(false);
+      }
     }
-  }, []);
+  }, [handleError, clearError]);
 
   /**
    * Handle market card selection
@@ -306,7 +397,12 @@ const MainPage = () => {
       selectedStock: null,
       chartTitle: APP_CONSTANTS.DEFAULT_CHART_TITLE
     })));
-  }, []);
+    
+    // Fetch chart data with loading state
+    fetchIndexChartData(ticker, true).catch(error => {
+      logger.error('Failed to fetch chart data on card click:', error);
+    });
+  }, [fetchIndexChartData]);
 
   /**
    * Handle stock search selection
@@ -319,8 +415,9 @@ const MainPage = () => {
       selectedCard: null,
       chartTitle: `${stock.symbol} - ${stock.name}`
     })));
-    // Don't await to avoid blocking UI
-    fetchStockChartData(stock.symbol).catch(error => {
+    
+    // Fetch chart data with loading state
+    fetchStockChartData(stock.symbol, true).catch(error => {
       logger.error('Failed to fetch stock chart data:', error);
     });
   }, [fetchStockChartData]);
@@ -331,36 +428,78 @@ const MainPage = () => {
    */
   const fetchInitialData = useCallback(async () => {
     try {
-      setUiState(/** @type {function(UIState): UIState} */ (prev => ({ ...prev, loading: true })));
+      // setUiState(/** @type {function(UIState): UIState} */ (prev => ({ ...prev, loading: true })));
+      clearError('market'); // Clear any existing errors
       
-      const indexResponses = await Promise.all([
-        axios.get(`${API_BASE_URL}${API_ENDPOINTS.INDICES.NASDAQ}`),
-        axios.get(`${API_BASE_URL}${API_ENDPOINTS.INDICES.DOW_JONES}`),
-        axios.get(`${API_BASE_URL}${API_ENDPOINTS.INDICES.SNP500}`),
-        axios.get(`${API_BASE_URL}${API_ENDPOINTS.INDICES.USD_KRW}`)
-      ]);
+      // 순차적으로 API 호출하여 백엔드 부하 방지
+      const indexData = [];
+      const endpoints = [
+        { name: 'NASDAQ', url: API_ENDPOINTS.INDICES.NASDAQ, id: 'nasdaq-index' },
+        { name: 'DOW_JONES', url: API_ENDPOINTS.INDICES.DOW_JONES, id: 'dow-index' },
+        { name: 'SNP500', url: API_ENDPOINTS.INDICES.SNP500, id: 'snp-index' },
+        { name: 'USD_KRW', url: API_ENDPOINTS.INDICES.USD_KRW, id: 'usd-krw-index' }
+      ];
 
-      const processedCardData = indexResponses
-        .map(response => {
+      for (const endpoint of endpoints) {
+        try {
+          const response = await axios.get(`${API_BASE_URL}${endpoint.url}`);
+          
           const data = response.data;
-          return data.length > 0 ? data[data.length - 1] : null;
-        })
-        .filter(Boolean);
-      
-      setCardData(processedCardData);
-      
-      // Load default chart data - don't await to avoid blocking
-      if (processedCardData.length > 0) {
-        fetchIndexChartData(uiState.selectedCard).catch(error => {
-          logger.error('Failed to fetch initial chart data:', error);
-        });
+          if (data && data.length > 0) {
+            indexData.push(data[data.length - 1]);
+          }
+        } catch (endpointError) {
+          logger.warn(`${endpoint.name} 데이터 가져오기 실패:`, endpointError);
+          // 개별 엔드포인트 실패는 전체 실패로 처리하지 않음
+        }
       }
+
+      setCardData(indexData);
     } catch (error) {
       logger.error("초기 데이터 가져오기 실패:", error);
+      handleError('market', '시장 데이터를 불러올 수 없습니다.');
     } finally {
-      setUiState(/** @type {function(UIState): UIState} */ (prev => ({ ...prev, loading: false })));
+      // setUiState(/** @type {function(UIState): UIState} */ (prev => ({ ...prev, loading: false })));
     }
-  }, [uiState.selectedCard, fetchIndexChartData]);
+  }, [uiState.selectedCard, fetchIndexChartData, handleError, clearError]);
+
+  /**
+   * Fetch market data only (for auto-refresh) - no loading state change
+   * @returns {Promise<void>}
+   */
+  const fetchMarketData = useCallback(async () => {
+    try {
+      clearError('market'); // Clear any existing errors
+      
+      // 순차적으로 API 호출하여 백엔드 부하 방지
+      const indexData = [];
+      const endpoints = [
+        { name: 'NASDAQ', url: API_ENDPOINTS.INDICES.NASDAQ, id: 'nasdaq-index' },
+        { name: 'DOW_JONES', url: API_ENDPOINTS.INDICES.DOW_JONES, id: 'dow-index' },
+        { name: 'SNP500', url: API_ENDPOINTS.INDICES.SNP500, id: 'snp-index' },
+        { name: 'USD_KRW', url: API_ENDPOINTS.INDICES.USD_KRW, id: 'usd-krw-index' }
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await axios.get(`${API_BASE_URL}${endpoint.url}`);
+          
+          const data = response.data;
+          if (data && data.length > 0) {
+            indexData.push(data[data.length - 1]);
+          }
+        } catch (endpointError) {
+          logger.warn(`${endpoint.name} 데이터 가져오기 실패:`, endpointError);
+          // 개별 엔드포인트 실패는 전체 실패로 처리하지 않음
+        }
+      }
+
+      setCardData(indexData);
+    } catch (error) {
+      logger.error("시장 데이터 가져오기 실패:", error);
+      handleError('market', '시장 데이터를 불러올 수 없습니다.');
+    }
+  }, [handleError, clearError]);
 
   // Effects - Initial data loading
   useEffect(() => {
@@ -377,6 +516,25 @@ const MainPage = () => {
       logger.error('Initial USD/KRW rate fetch failed:', error);
     });
   }, [fetchInitialData, fetchSchedulerStatus, fetchUsdKrwRate]);
+
+  // Load initial chart data after page loads
+  useEffect(() => {
+    if (!uiState.loading && uiState.selectedCard) {
+      fetchIndexChartData(uiState.selectedCard, false).catch(error => {
+        logger.error('Failed to fetch initial chart data:', error);
+      });
+    }
+  }, [uiState.loading, uiState.selectedCard, fetchIndexChartData]);
+
+  // Request queue monitoring (개발 환경에서만)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const interval = setInterval(() => {
+      }, 2000);
+
+      return () => clearInterval(interval);
+    }
+  }, []);
 
   // Update portfolio data when exchange rate changes
   useEffect(() => {
@@ -397,6 +555,25 @@ const MainPage = () => {
           logger.error('Auto-refresh portfolio data failed:', error);
         });
         
+        fetchUsdKrwRate().catch(error => {
+          logger.error('Auto-refresh USD/KRW rate failed:', error);
+        });
+        
+        fetchMarketData().catch(error => {
+          logger.error('Auto-refresh market data failed:', error);
+        });
+        
+        // Refresh chart data for currently selected card
+        if (uiState.selectedStock) {
+          fetchStockChartData(uiState.selectedStock).catch(error => {
+            logger.error('Auto-refresh stock chart failed:', error);
+          });
+        } else {
+          fetchIndexChartData(uiState.selectedCard).catch(error => {
+            logger.error('Auto-refresh index chart failed:', error);
+          });
+        }
+        
         if (!uiState.isToggling) {
           fetchSchedulerStatus().catch(error => {
             logger.error('Auto-refresh scheduler status failed:', error);
@@ -406,39 +583,27 @@ const MainPage = () => {
     }, APP_CONSTANTS.REFRESH_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [uiState.loading, uiState.isToggling, fetchPortfolioData, fetchSchedulerStatus]);
+  }, [uiState.loading, uiState.isToggling, uiState.selectedCard, uiState.selectedStock, fetchPortfolioData, fetchSchedulerStatus, fetchUsdKrwRate, fetchMarketData, fetchStockChartData, fetchIndexChartData]);
 
-  // Update chart when selected card changes
+
+  // Cleanup on unmount
   useEffect(() => {
-    if (!uiState.loading && uiState.selectedCard) {
-      // Don't await to prevent blocking UI
-      fetchIndexChartData(uiState.selectedCard).catch(error => {
-        logger.error('Failed to fetch chart data on card change:', error);
-      });
-    }
-  }, [uiState.selectedCard, uiState.loading, fetchIndexChartData]);
+    return () => {
+      // Cancel all pending requests when component unmounts
+    };
+  }, []);
 
-  // Loading state
-  if (uiState.loading) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // Full page loading is disabled - only chart loading is used
 
   return (
     <div className="min-h-screen bg-slate-900 text-gray-300">
       <Navbar />
       
       {/* Scheduler Error State */}
-      {schedulerError && (
+      {(schedulerError || errors.scheduler) && (
         <div className="w-full bg-slate-800 border-b border-slate-600">
           <Container className="py-4">
-            <ErrorState message={schedulerError} onRetry={handleSchedulerErrorRetry} />
+            <ErrorState message={schedulerError || errors.scheduler} showRetryInfo={true} />
           </Container>
         </div>
       )}
@@ -463,7 +628,6 @@ const MainPage = () => {
           <Section 
             title="시장 개요" 
             subtitle="실시간 지수 현황"
-            icon="📊"
             contentClassName="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
           >
             {cardData.map((data, index) => (
@@ -483,7 +647,6 @@ const MainPage = () => {
           {/* Interactive Chart Section */}
           <Section 
             title={uiState.chartTitle}
-            icon="📈"
             variant="transparent"
             className="mb-6"
           >
@@ -499,17 +662,20 @@ const MainPage = () => {
               data={chartData}
               selectedTicker={uiState.selectedStock ? uiState.selectedStock.symbol : uiState.selectedCard}
               height={APP_CONSTANTS.DEFAULT_CHART_HEIGHT}
+              loading={chartLoading}
             />
           </Section>
 
           {/* Portfolio Section */}
           <Section 
             title="포트폴리오 현황"
-            icon="💼"
             variant="transparent"
             className="mb-6"
           >
-            <PortfolioOverview />
+            <PortfolioOverview 
+              portfolioData={portfolioApiData}
+              error={errors.portfolio}
+            />
           </Section>
 
         </Container>

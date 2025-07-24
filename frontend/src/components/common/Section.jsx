@@ -4,8 +4,7 @@ import PropTypes from 'prop-types';
 const Section = ({ 
   title, 
   subtitle, 
-  icon, 
-  children, 
+  children,
   className = '', 
   headerClassName = '',
   contentClassName = '',
@@ -26,8 +25,7 @@ const Section = ({
     <div className={`${getVariantClasses()} ${className}`}>
       {title && (
         <div className={`mb-4 ${headerClassName}`}>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            {icon && <span>{icon}</span>}
+          <h2 className="text-xl font-bold text-white flex items-end gap-2">
             {title}
             {subtitle && (
               <span className="text-sm text-slate-400 font-normal">{subtitle}</span>

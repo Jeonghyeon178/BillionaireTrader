@@ -69,6 +69,18 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
     }
   }, [searchQuery, searchStocks]);
 
+  // Auto-retry on search error with timeout
+  useEffect(() => {
+    if (searchError && searchQuery.trim()) {
+      const retryTimeout = setTimeout(() => {
+        logger.info('자동으로 주식 검색 재시도 중...');
+        handleSearchErrorRetry();
+      }, 5000); // 5초 후 자동 재시도
+
+      return () => clearTimeout(retryTimeout);
+    }
+  }, [searchError, searchQuery, handleSearchErrorRetry]);
+
   // Clear search callback
   const handleClearSearch = useCallback(() => {
     setSearchQuery('');
@@ -150,7 +162,7 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
       {/* Error State Display */}
       {searchError && (
         <div className="mb-4 rounded-lg bg-slate-800/50 border border-slate-600 p-4">
-          <ErrorState message={searchError} onRetry={handleSearchErrorRetry} />
+          <ErrorState message={searchError} showRetryInfo={true} />
         </div>
       )}
       

@@ -35,7 +35,8 @@ const TIME_FILTERS = [
 const InteractiveChart = ({ 
   data = [], 
   selectedTicker = 'COMP', 
-  height = 400
+  height = 400,
+  loading = false
 }) => {
   const [timeFilter, setTimeFilter] = useState('1M');
   const [filteredData, setFilteredData] = useState([]);
@@ -56,8 +57,8 @@ const InteractiveChart = ({
   const yAxisDomain = getYAxisDomain(filteredData);
   const tickCount = getTickCount(timeFilter);
   
-  // 로딩 상태 - data가 null/undefined일 때만 로딩으로 처리
-  const isLoading = !data;
+  // 로딩 상태 - 외부에서 전달받은 loading 상태 또는 data가 null/undefined일 때 로딩으로 처리
+  const isLoading = loading || !data;
   
   // 툴팁 포맷터
   const formatTooltipLabel = (label) => label;
@@ -83,8 +84,10 @@ const InteractiveChart = ({
       <ChartContainer 
         height={height}
         loading={isLoading}
+        error={data && data.length === 0 ? "차트 데이터를 불러올 수 없습니다" : null}
         emptyMessage="차트 데이터를 불러오는 중입니다..."
         errorMessage="API 연결을 확인해주세요"
+        showRetryInfo={true}
       >
         {filteredData && filteredData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
@@ -97,7 +100,7 @@ const InteractiveChart = ({
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" strokeOpacity={0.3} />
               <XAxis 
-                dataKey="date" 
+                dataKey="timestamp" 
                 stroke="#9ca3af" 
                 fontSize={12}
                 interval="preserveStartEnd"
@@ -162,13 +165,15 @@ const InteractiveChart = ({
 InteractiveChart.propTypes = {
   data: PropTypes.arrayOf(PropTypes.object),
   selectedTicker: PropTypes.string,
-  height: PropTypes.number
+  height: PropTypes.number,
+  loading: PropTypes.bool
 };
 
 InteractiveChart.defaultProps = {
   data: [],
   selectedTicker: 'COMP',
-  height: 400
+  height: 400,
+  loading: false
 };
 
 export default InteractiveChart;

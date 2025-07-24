@@ -1,7 +1,13 @@
 // Chart utilities (refactored from deleted ChartUtils.js)
 
 // Chart color configuration
-export const getChartColor = (value, isPositive = true) => {
+export const getChartColor = (data) => {
+  if (!data || data.length < 2) return '#10b981'; // Default green
+  
+  const firstPrice = data[0].price;
+  const lastPrice = data[data.length - 1].price;
+  const isPositive = lastPrice >= firstPrice;
+  
   return isPositive ? '#10b981' : '#ef4444'; // green or red
 };
 
@@ -70,7 +76,7 @@ export const filterDataByTimeRange = (data, timeFilter, timeFilters) => {
   cutoffDate.setDate(cutoffDate.getDate() - filterConfig.days);
   
   return data.filter(item => {
-    const itemDate = new Date(item.timestamp);
+    const itemDate = new Date(item.timestamp || item.date);
     return itemDate >= cutoffDate;
   });
 };

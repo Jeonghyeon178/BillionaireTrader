@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React from 'react';
+import PropTypes from 'prop-types';
 import ErrorState from '../common/ErrorState';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 /**
  * @typedef {Object} HoldingData
@@ -24,33 +22,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api
  * @property {string} cash_balance_res.output[].frcr_dncl_amt1
  */
 
-const PortfolioOverview = () => {
-  const [portfolioData, setPortfolioData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    // Properly handle the promise from fetchPortfolioData
-    fetchPortfolioData().catch(error => {
-      console.error('Failed to fetch portfolio data on mount:', error);
-    });
-  }, []);
-
-  const fetchPortfolioData = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/account`);
-      /** @type {PortfolioApiResponse} */
-      const data = response.data;
-      setPortfolioData(data);
-      setError(null);
-    } catch (error) {
-      console.error('포트폴리오 데이터 가져오기 실패:', error);
-      setError('포트폴리오 데이터를 불러올 수 없습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
+const PortfolioOverview = ({ portfolioData, loading = false, error = null }) => {
 
   const calculatePortfolioSummary = () => {
     if (!portfolioData) return null;
@@ -76,13 +48,6 @@ const PortfolioOverview = () => {
     }).format(amount);
   };
 
-  // Handle retry button click
-  const handleRetry = () => {
-    fetchPortfolioData().catch(error => {
-      console.error('Failed to retry fetching portfolio data:', error);
-    });
-  };
-
   if (loading) {
     return (
       <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 h-64 flex items-center justify-center">
@@ -95,7 +60,7 @@ const PortfolioOverview = () => {
   }
 
   if (error) {
-    return <ErrorState message={error} onRetry={handleRetry} />;
+    return <ErrorState message={error} showRetryInfo={true} />;
   }
 
   const summary = calculatePortfolioSummary();
@@ -222,8 +187,10 @@ const PortfolioOverview = () => {
   );
 };
 
-// PortfolioOverview doesn't accept any props, so no PropTypes needed
-// But we'll add an empty propTypes for consistency
-PortfolioOverview.propTypes = {};
+PortfolioOverview.propTypes = {
+  portfolioData: PropTypes.object,
+  loading: PropTypes.bool,
+  error: PropTypes.string
+};
 
 export default PortfolioOverview;
