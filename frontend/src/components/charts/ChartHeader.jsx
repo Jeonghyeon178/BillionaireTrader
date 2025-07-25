@@ -8,7 +8,6 @@ const ChartHeader = ({
   timeFilter,
   className = ''
 }) => {
-  // 티커 이름 매핑
   const getTickerName = (ticker) => {
     const names = {
       'COMP': 'NASDAQ',

@@ -2,25 +2,6 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import ErrorState from '../common/ErrorState';
 
-/**
- * @typedef {Object} HoldingData
- * @property {string} ovrs_stck_evlu_amt - 해외주식 평가금액
- * @property {string} ord_psbl_qty - 주문 가능 수량
- * @property {string} now_pric2 - 현재가격
- * @property {string} ovrs_pdno - 해외상품번호 (종목코드)
- * @property {string} ovrs_item_name - 해외종목명
- */
-
-/**
- * @typedef {Object} PortfolioApiResponse
- * @property {Object} stock_balance_res
- * @property {Object} stock_balance_res.output2
- * @property {string} stock_balance_res.output2.tot_evlu_pfls_amt
- * @property {HoldingData[]} stock_balance_res.output1
- * @property {Object} cash_balance_res
- * @property {Array} cash_balance_res.output
- * @property {string} cash_balance_res.output[].frcr_dncl_amt1
- */
 
 const PortfolioOverview = ({ portfolioData, loading = false, error = null }) => {
 
@@ -68,7 +49,6 @@ const PortfolioOverview = ({ portfolioData, loading = false, error = null }) => 
 
   return (
     <div className="bg-slate-800 border border-slate-600 rounded-xl p-6">
-      {/* 포트폴리오 요약 */}
       <div className="mb-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-slate-700 rounded-lg p-4">
@@ -103,7 +83,6 @@ const PortfolioOverview = ({ portfolioData, loading = false, error = null }) => 
           </div>
         </div>
 
-        {/* 자산 구성 비율 바 */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-slate-300 text-sm">자산 구성</span>
@@ -126,7 +105,6 @@ const PortfolioOverview = ({ portfolioData, loading = false, error = null }) => 
         </div>
       </div>
 
-      {/* 보유 종목 목록 */}
       <div>
         <h4 className="text-md font-semibold text-white mb-3">보유 종목</h4>
         {holdings.length === 0 ? (
@@ -136,8 +114,7 @@ const PortfolioOverview = ({ portfolioData, loading = false, error = null }) => 
           </div>
         ) : (
           <div className="space-y-3">
-            {holdings.map((/** @type {HoldingData} */ holding, index) => {
-              // Provide fallback values for potentially undefined properties
+            {holdings.map((holding, index) => {
               const currentValue = parseFloat(holding?.ovrs_stck_evlu_amt || '0');
               const quantity = parseInt(holding?.ord_psbl_qty || '0');
               const currentPrice = parseFloat(holding?.now_pric2 || '0');

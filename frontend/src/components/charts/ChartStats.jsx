@@ -1,7 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-// Move StatItem component outside of parent component
 const StatItem = ({ label, value, color = 'text-white' }) => (
   <div className="text-center">
     <p className="text-slate-400 text-xs">{label}</p>
@@ -24,7 +23,6 @@ const ChartStats = ({
   className = '',
   showVolume = false 
 }) => {
-  // 통계 계산
   const calculateStats = () => {
     if (data.length === 0) {
       return {

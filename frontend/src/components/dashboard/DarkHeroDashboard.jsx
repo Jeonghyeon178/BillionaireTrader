@@ -15,7 +15,6 @@ const DarkHeroDashboard = ({
   isToggling = false,
   onToggleScheduler
 }) => {
-  // Extract complex conditional logic
   const getSchedulerStatus = () => {
     if (isToggling) return '처리 중...';
     return schedulerStatus === 'ENABLED' ? '활성화됨' : '비활성화됨';
@@ -67,9 +66,7 @@ const DarkHeroDashboard = ({
         lastUpdated={lastUpdated}
       />
 
-      {/* 상태 카드 그리드 - BaseCard + MetricDisplay 사용 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 자동매매 컨트롤 카드 */}
         <BaseCard
           variant="metric"
           className={`cursor-pointer transition-all duration-200 ${getSchedulerHoverRing()}`}
@@ -85,7 +82,6 @@ const DarkHeroDashboard = ({
           />
         </BaseCard>
 
-        {/* 수익률 카드 */}
         <BaseCard variant="metric">
           <MetricDisplay
             title="총 수익률"
@@ -97,7 +93,6 @@ const DarkHeroDashboard = ({
           />
         </BaseCard>
         
-        {/* 포트폴리오 가치 카드 */}
         <BaseCard variant="metric">
           <MetricDisplay
             title="포트폴리오 가치"
@@ -108,7 +103,6 @@ const DarkHeroDashboard = ({
           />
         </BaseCard>
         
-        {/* 알림 카드 */}
         <BaseCard variant="metric">
           <MetricDisplay
             title="실시간 알림"

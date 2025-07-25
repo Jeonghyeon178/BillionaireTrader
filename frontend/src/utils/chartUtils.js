@@ -1,17 +1,13 @@
-// Chart utilities (refactored from deleted ChartUtils.js)
-
-// Chart color configuration
 export const getChartColor = (data) => {
-  if (!data || data.length < 2) return '#10b981'; // Default green
+  if (!data || data.length < 2) return '#10b981';
   
   const firstPrice = data[0].price;
   const lastPrice = data[data.length - 1].price;
   const isPositive = lastPrice >= firstPrice;
   
-  return isPositive ? '#10b981' : '#ef4444'; // green or red
+  return isPositive ? '#10b981' : '#ef4444';
 };
 
-// Calculate optimal Y-axis domain with padding
 export const getYAxisDomain = (data) => {
   if (!data || data.length === 0) return [0, 100];
   
@@ -20,19 +16,17 @@ export const getYAxisDomain = (data) => {
   
   const min = Math.min(...prices);
   const max = Math.max(...prices);
-  const padding = (max - min) * 0.1; // 10% padding
+  const padding = (max - min) * 0.1;
   
   return [Math.max(0, min - padding), max + padding];
 };
 
-// Format Y-axis values
 export const formatYAxisValue = (value) => {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
   return value.toFixed(0);
 };
 
-// Format X-axis values based on time period
 export const formatXAxisValue = (timestamp, timeFilter) => {
   const date = new Date(timestamp);
   
@@ -51,7 +45,6 @@ export const formatXAxisValue = (timestamp, timeFilter) => {
   }
 };
 
-// Get optimal tick count for X-axis
 export const getTickCount = (dataLength, timeFilter) => {
   switch (timeFilter) {
     case '1D': return Math.min(6, dataLength);
@@ -63,13 +56,12 @@ export const getTickCount = (dataLength, timeFilter) => {
   }
 };
 
-// Filter data by time range
 export const filterDataByTimeRange = (data, timeFilter, timeFilters) => {
   if (!data || data.length === 0) return [];
   
   const filterConfig = timeFilters.find(f => f.key === timeFilter);
   if (!filterConfig || filterConfig.days === null) {
-    return data; // Return all data for 'ALL' filter
+    return data;
   }
   
   const cutoffDate = new Date();
@@ -81,7 +73,6 @@ export const filterDataByTimeRange = (data, timeFilter, timeFilters) => {
   });
 };
 
-// Transform chart data for different data sources
 export const transformChartData = (rawData, format = 'default') => {
   if (!rawData || !Array.isArray(rawData)) return [];
   
@@ -102,7 +93,6 @@ export const transformChartData = (rawData, format = 'default') => {
   }).filter(item => item.price > 0);
 };
 
-// Generate dummy chart data for testing/fallback
 export const generateDummyChartData = (days = 30, basePrice = 100) => {
   const data = [];
   const now = new Date();
@@ -111,8 +101,7 @@ export const generateDummyChartData = (days = 30, basePrice = 100) => {
     const date = new Date(now);
     date.setDate(date.getDate() - i);
     
-    // Generate realistic price movement
-    const randomChange = (Math.random() - 0.5) * 0.1; // ±5% change
+    const randomChange = (Math.random() - 0.5) * 0.1;
     const price = basePrice * (1 + randomChange);
     
     data.push({
@@ -121,7 +110,7 @@ export const generateDummyChartData = (days = 30, basePrice = 100) => {
       volume: Math.floor(Math.random() * 1000000)
     });
     
-    basePrice = price; // Use previous price as base for next iteration
+    basePrice = price;
   }
   
   return data;

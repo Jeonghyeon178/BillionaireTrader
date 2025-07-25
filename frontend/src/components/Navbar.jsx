@@ -5,7 +5,6 @@ const Navbar = () => {
     <div className="bg-gradient-to-r from-slate-800 to-slate-900 shadow-lg">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* 로고 */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
@@ -15,7 +14,6 @@ const Navbar = () => {
             </div>
           </div>
 
-          {/* 네비게이션 링크 */}
           <nav className="hidden md:flex items-center gap-6">
             <a href="#" className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
               대시보드
@@ -34,9 +32,7 @@ const Navbar = () => {
             </a>
           </nav>
 
-          {/* 우측 섹션 */}
           <div className="flex items-center gap-4">
-            {/* 검색 */}
             <div className="hidden lg:block">
               <div className="relative">
                 <input
@@ -52,7 +48,6 @@ const Navbar = () => {
               </div>
             </div>
 
-            {/* 알림 */}
             <button className="relative p-2 text-gray-300 hover:text-white transition-colors">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-5 5l5 5M7 7v10l5-5-5-5z" />
@@ -60,7 +55,6 @@ const Navbar = () => {
               <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-slate-800"></span>
             </button>
 
-            {/* 사용자 메뉴 */}
             <div className="relative">
               <button className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors">
                 <div className="w-8 h-8 bg-slate-600 rounded-full flex items-center justify-center">
@@ -70,7 +64,6 @@ const Navbar = () => {
               </button>
             </div>
 
-            {/* 모바일 메뉴 버튼 */}
             <button className="md:hidden p-2 text-gray-300 hover:text-white transition-colors">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -83,7 +76,6 @@ const Navbar = () => {
   );
 };
 
-// Navbar doesn't accept any props
 Navbar.propTypes = {};
 
 export default Navbar;

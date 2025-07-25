@@ -2,32 +2,25 @@ import React from 'react';
 import PropTypes from 'prop-types';
 
 const BaseCard = ({ 
-  // Layout variants
-  variant = 'default', // 'default', 'financial', 'status', 'metric'
-  theme = 'dark', // 'light', 'dark'
-  
-  // Common props
+  variant = 'default',
+  theme = 'dark',
   className = '',
   onClick,
   children,
   
-  // Financial card props
   index,
   rate,
   value,
-  
-  // Status card props  
+    
   icon,
   title,
   subtitle,
   badge,
   
-  // Styling props
   ringColor = '',
   
   ...props 
 }) => {
-  // Base styling based on theme
   const getBaseClasses = () => {
     switch (theme) {
       case 'light':
@@ -38,7 +31,6 @@ const BaseCard = ({
     }
   };
 
-  // Ring styling
   const getRingClasses = () => {
     if (ringColor) return `ring-1 ${ringColor}`;
     if (variant === 'success') return 'ring-1 ring-green-500';
@@ -47,7 +39,6 @@ const BaseCard = ({
     return '';
   };
 
-  // Financial card content
   const renderFinancialContent = () => (
     <div className="flex-auto p-4">
       <div className="flex flex-row -mx-3">
@@ -79,7 +70,6 @@ const BaseCard = ({
     </div>
   );
 
-  // Status card content
   const renderStatusContent = () => (
     <div className="p-4">
       <div className="flex items-center justify-between mb-2">
@@ -101,14 +91,12 @@ const BaseCard = ({
     </div>
   );
 
-  // Default content (just children)
   const renderDefaultContent = () => (
     <div className="p-4">
       {children}
     </div>
   );
 
-  // Content based on variant
   const renderContent = () => {
     switch (variant) {
       case 'financial':
@@ -122,12 +110,10 @@ const BaseCard = ({
     }
   };
 
-  // Wrapper classes for financial cards
   const wrapperClasses = variant === 'financial' 
     ? "w-full max-w-full px-3 mb-6 sm:w-1/2 sm:flex-none xl:mb-0 xl:w-1/4"
     : "";
 
-  // Determine if this should be interactive
   const isInteractive = onClick !== undefined;
 
   const cardElement = isInteractive ? (
@@ -147,7 +133,6 @@ const BaseCard = ({
     </div>
   );
 
-  // Wrap in container for financial cards
   if (variant === 'financial') {
     return (
       <div className={wrapperClasses}>
@@ -160,27 +145,22 @@ const BaseCard = ({
 };
 
 BaseCard.propTypes = {
-  // Layout variants
   variant: PropTypes.oneOf(['default', 'financial', 'status', 'metric', 'success', 'error', 'warning']),
   theme: PropTypes.oneOf(['light', 'dark']),
   
-  // Common props
   className: PropTypes.string,
   onClick: PropTypes.func,
   children: PropTypes.node,
   
-  // Financial card props
   index: PropTypes.string,
   rate: PropTypes.number,
   value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  
-  // Status card props  
+    
   icon: PropTypes.node,
   title: PropTypes.string,
   subtitle: PropTypes.string,
   badge: PropTypes.node,
   
-  // Styling props
   ringColor: PropTypes.string
 };
 

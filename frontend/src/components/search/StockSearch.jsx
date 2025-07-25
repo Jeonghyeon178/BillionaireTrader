@@ -17,7 +17,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
-  // Memoized dummy data to prevent recreation on each render
   const dummyStocks = useMemo(() => [
     { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
     { symbol: 'GOOGL', name: 'Alphabet Inc.', exchange: 'NASDAQ' },
@@ -29,7 +28,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
     { symbol: 'NFLX', name: 'Netflix, Inc.', exchange: 'NASDAQ' }
   ], []);
 
-  // Search API call with proper error handling
   const searchStocks = useCallback(async (query) => {
     if (query.length < APP_CONSTANTS.MIN_SEARCH_LENGTH) {
       setSearchResults([]);
@@ -45,12 +43,10 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
       );
       const results = response.data.slice(0, APP_CONSTANTS.MAX_SEARCH_RESULTS);
       setSearchResults(results);
-      // Clear any previous search errors on successful API call
       setSearchError(null);
     } catch (error) {
       logger.error('주식 검색 실패:', error);
       setSearchError('주식 검색 API에 연결할 수 없습니다. 오프라인 데이터를 표시합니다.');
-      // Fallback to dummy data for development
       const filteredDummyResults = dummyStocks.filter(stock => 
         stock.symbol.toLowerCase().includes(query.toLowerCase()) ||
         stock.name.toLowerCase().includes(query.toLowerCase())
@@ -61,7 +57,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
     }
   }, [dummyStocks, API_BASE_URL]);
 
-  // Handle search error retry
   const handleSearchErrorRetry = useCallback(() => {
     const trimmedQuery = searchQuery.trim();
     if (trimmedQuery) {
@@ -69,19 +64,17 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
     }
   }, [searchQuery, searchStocks]);
 
-  // Auto-retry on search error with timeout
   useEffect(() => {
     if (searchError && searchQuery.trim()) {
       const retryTimeout = setTimeout(() => {
         logger.info('자동으로 주식 검색 재시도 중...');
         handleSearchErrorRetry();
-      }, 5000); // 5초 후 자동 재시도
+      }, 5000);
 
       return () => clearTimeout(retryTimeout);
     }
   }, [searchError, searchQuery, handleSearchErrorRetry]);
 
-  // Clear search callback
   const handleClearSearch = useCallback(() => {
     setSearchQuery('');
     setSearchResults([]);
@@ -89,7 +82,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
     setIsOpen(false);
   }, []);
 
-  // Debounced search with cleanup
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       const trimmedQuery = searchQuery.trim();
@@ -105,7 +97,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, searchStocks]);
 
-  // Stock selection handler with useCallback
   const handleStockSelect = useCallback((stock) => {
     setSearchQuery(`${stock.symbol} - ${stock.name}`);
     setIsOpen(false);
@@ -113,7 +104,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
     onStockSelect(stock);
   }, [onStockSelect]);
 
-  // Keyboard navigation with useCallback for performance
   const handleKeyDown = useCallback((e) => {
     if (!isOpen) return;
 
@@ -139,12 +129,10 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
         setSelectedIndex(-1);
         break;
       default:
-        // No action needed for other keys
         break;
     }
   }, [isOpen, searchResults, selectedIndex, handleStockSelect]);
 
-  // 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -159,14 +147,11 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
 
   return (
     <div ref={searchRef} className={`relative ${className}`}>
-      {/* Error State Display */}
       {searchError && (
         <div className="mb-4 rounded-lg bg-slate-800/50 border border-slate-600 p-4">
           <ErrorState message={searchError} showRetryInfo={true} />
         </div>
       )}
-      
-      {/* 검색 입력 필드 */}
       <div className="relative">
         <input
           type="text"
@@ -179,7 +164,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
                    placeholder-slate-400"
         />
         
-        {/* 검색 아이콘 */}
         <div className="absolute inset-y-0 left-0 flex items-center pl-3">
           {isLoading ? (
             <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
@@ -189,8 +173,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
             </svg>
           )}
         </div>
-
-        {/* Clear search button */}
         {searchQuery && (
           <button
             onClick={handleClearSearch}
@@ -203,7 +185,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
         )}
       </div>
 
-      {/* 검색 결과 드롭다운 */}
       {isOpen && searchResults.length > 0 && (
         <div 
           ref={resultsRef}
@@ -233,7 +214,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
         </div>
       )}
 
-      {/* No results message */}
       {isOpen && searchQuery.length >= APP_CONSTANTS.MIN_SEARCH_LENGTH && searchResults.length === 0 && !isLoading && (
         <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl">
           <div className="px-4 py-3 text-center text-slate-400">

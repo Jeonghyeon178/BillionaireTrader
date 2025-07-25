@@ -40,7 +40,6 @@ const ChartContainer = ({
     );
   }
 
-  // children이 없거나 차트 데이터가 비어있을 때 빈 상태 표시
   if (!children || (React.Children.count(children) === 0)) {
     return (
       <div 

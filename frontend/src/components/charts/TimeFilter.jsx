@@ -7,7 +7,6 @@ const TimeFilter = ({
   filters = null,
   className = '' 
 }) => {
-  // 기본 시간 필터 옵션
   const defaultFilters = [
     { key: '1D', label: '1일', days: 1 },
     { key: '1W', label: '1주', days: 7 },

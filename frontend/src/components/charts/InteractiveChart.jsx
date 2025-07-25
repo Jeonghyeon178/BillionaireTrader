@@ -23,7 +23,6 @@ import {
   filterDataByTimeRange
 } from '../../utils/chartUtils';
 
-// 시간 필터 옵션 (상수로 이동하여 최적화)
 const TIME_FILTERS = [
   { key: '1D', label: '1일', days: 1 },
   { key: '1W', label: '1주', days: 7 },
@@ -41,7 +40,6 @@ const InteractiveChart = ({
   const [timeFilter, setTimeFilter] = useState('1M');
   const [filteredData, setFilteredData] = useState([]);
 
-  // 데이터 필터링
   useEffect(() => {
     if (!data || data.length === 0) {
       setFilteredData([]);
@@ -52,21 +50,17 @@ const InteractiveChart = ({
     setFilteredData(filtered);
   }, [data, timeFilter, selectedTicker]);
 
-  // 차트 색상과 도메인 계산
   const chartColor = getChartColor(filteredData);
   const yAxisDomain = getYAxisDomain(filteredData);
   const tickCount = getTickCount(timeFilter);
   
-  // 로딩 상태 - 외부에서 전달받은 loading 상태 또는 data가 null/undefined일 때 로딩으로 처리
   const isLoading = loading || !data;
   
-  // 툴팁 포맷터
   const formatTooltipLabel = (label) => label;
   const formatTooltipValue = (value) => typeof value === 'number' ? value.toFixed(2) : value;
 
   return (
     <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 w-full">
-      {/* 차트 헤더와 필터 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
         <ChartHeader 
           ticker={selectedTicker}
@@ -80,7 +74,6 @@ const InteractiveChart = ({
         />
       </div>
 
-      {/* 차트 영역 */}
       <ChartContainer 
         height={height}
         loading={isLoading}
@@ -152,7 +145,6 @@ const InteractiveChart = ({
         )}
       </ChartContainer>
 
-      {/* 차트 통계 정보 */}
       <ChartStats 
         data={filteredData}
         chartColor={chartColor}
