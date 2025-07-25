@@ -22,8 +22,5 @@ ErrorState.propTypes = {
   showRetryInfo: PropTypes.bool
 };
 
-ErrorState.defaultProps = {
-  showRetryInfo: false
-};
 
 export default ErrorState;

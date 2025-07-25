@@ -161,11 +161,5 @@ InteractiveChart.propTypes = {
   loading: PropTypes.bool
 };
 
-InteractiveChart.defaultProps = {
-  data: [],
-  selectedTicker: 'COMP',
-  height: 400,
-  loading: false
-};
 
 export default InteractiveChart;

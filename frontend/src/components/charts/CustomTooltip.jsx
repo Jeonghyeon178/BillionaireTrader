@@ -2,9 +2,9 @@ import React from 'react';
 import PropTypes from 'prop-types';
 
 const CustomTooltip = ({ 
-  active, 
-  payload, 
-  label, 
+  active = false, 
+  payload = [], 
+  label = '', 
   baselineData = [],
   showVolume = true,
   formatValue = null,
@@ -73,15 +73,5 @@ CustomTooltip.propTypes = {
   className: PropTypes.string
 };
 
-CustomTooltip.defaultProps = {
-  active: false,
-  payload: [],
-  label: '',
-  baselineData: [],
-  showVolume: true,
-  formatValue: null,
-  formatLabel: null,
-  className: ''
-};
 
 export default CustomTooltip;

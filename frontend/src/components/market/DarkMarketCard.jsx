@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-const DarkMarketCard = ({ ticker, name, price, changePercent, onClick, isActive }) => {
+const DarkMarketCard = ({ ticker, name, price, changePercent, onClick, isActive = false }) => {
   const isPositive = changePercent >= 0;
   
   const getIcon = (ticker) => {
@@ -50,8 +50,5 @@ DarkMarketCard.propTypes = {
   isActive: PropTypes.bool
 };
 
-DarkMarketCard.defaultProps = {
-  isActive: false
-};
 
 export default DarkMarketCard;

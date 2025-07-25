@@ -77,14 +77,5 @@ ChartContainer.propTypes = {
   showRetryInfo: PropTypes.bool
 };
 
-ChartContainer.defaultProps = {
-  children: null,
-  height: 400,
-  loading: false,
-  error: null,
-  emptyMessage: "차트 데이터를 불러오는 중입니다...",
-  className: '',
-  showRetryInfo: false
-};
 
 export default ChartContainer;

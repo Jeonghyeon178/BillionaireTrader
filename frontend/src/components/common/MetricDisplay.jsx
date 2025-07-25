@@ -9,19 +9,13 @@ const MetricDisplay = ({
   titleColor = 'text-slate-300',
   subtitleColor = 'text-slate-400',
   badge = null,
-  icon = null,
-  trend = null
+  icon = null
 }) => {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between mb-2">
         {icon && <span className="text-2xl">{icon}</span>}
         <div className="flex items-center gap-2">
-          {trend && (
-            <span className={`text-sm ${trend === 'up' ? 'text-green-400' : 'text-red-400'}`}>
-              {trend === 'up' ? '↗️' : '↘️'}
-            </span>
-          )}
           {badge}
         </div>
       </div>
@@ -51,8 +45,7 @@ MetricDisplay.propTypes = {
   titleColor: PropTypes.string,
   subtitleColor: PropTypes.string,
   badge: PropTypes.node,
-  icon: PropTypes.string,
-  trend: PropTypes.oneOf(['up', 'down'])
+  icon: PropTypes.string
 };
 
 export default MetricDisplay;

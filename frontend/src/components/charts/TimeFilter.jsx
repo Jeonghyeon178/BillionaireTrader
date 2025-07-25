@@ -47,9 +47,5 @@ TimeFilter.propTypes = {
   className: PropTypes.string
 };
 
-TimeFilter.defaultProps = {
-  filters: null,
-  className: ''
-};
 
 export default TimeFilter;

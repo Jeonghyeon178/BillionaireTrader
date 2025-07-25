@@ -14,10 +14,6 @@ StatItem.propTypes = {
   color: PropTypes.string
 };
 
-StatItem.defaultProps = {
-  color: 'text-white'
-};
-
 const ChartStats = ({ 
   data = [], 
   className = '',
@@ -97,12 +93,6 @@ ChartStats.propTypes = {
   })),
   className: PropTypes.string,
   showVolume: PropTypes.bool
-};
-
-ChartStats.defaultProps = {
-  data: [],
-  className: '',
-  showVolume: false
 };
 
 export default ChartStats;

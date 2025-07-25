@@ -164,20 +164,5 @@ BaseCard.propTypes = {
   ringColor: PropTypes.string
 };
 
-BaseCard.defaultProps = {
-  variant: 'default',
-  theme: 'dark',
-  className: '',
-  onClick: undefined,
-  children: null,
-  index: undefined,
-  rate: undefined,
-  value: undefined,
-  icon: undefined,
-  title: undefined,
-  subtitle: undefined,
-  badge: undefined,
-  ringColor: ''
-};
 
 export default BaseCard;

@@ -22,10 +22,5 @@ Container.propTypes = {
   maxWidth: PropTypes.oneOf(['1200px', '1400px', '1600px', 'full'])
 };
 
-Container.defaultProps = {
-  children: null,
-  className: '',
-  maxWidth: '1600px'
-};
 
 export default Container;
