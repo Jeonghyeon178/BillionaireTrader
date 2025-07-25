@@ -8,7 +8,6 @@ import InteractiveChart from "../components/charts/InteractiveChart";
 import PortfolioOverview from "../components/portfolio/PortfolioOverview";
 import Container from "../components/common/Container";
 import Section from "../components/common/Section";
-import StockSearch from "../components/search/StockSearch";
 import ErrorState from "../components/common/ErrorState";
 import { APP_CONSTANTS, API_ENDPOINTS, CHART_ENDPOINTS } from '../constants/appConstants';
 import { logger, performanceLogger } from '../utils/logger';
@@ -442,7 +441,7 @@ const MainPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-gray-300">
-      <Navbar />
+      <Navbar onStockSelect={handleStockSelect} />
       
       {(schedulerError || errors.scheduler) && (
         <div className="w-full bg-slate-800 border-b border-slate-600">
@@ -491,13 +490,6 @@ const MainPage = () => {
             variant="transparent"
             className="mb-6"
           >
-            <div className="mb-4">
-              <StockSearch 
-                onStockSelect={handleStockSelect}
-                className="max-w-md"
-              />
-            </div>
-            
             <InteractiveChart 
               data={chartData}
               selectedTicker={uiState.selectedStock ? uiState.selectedStock.symbol : uiState.selectedCard}

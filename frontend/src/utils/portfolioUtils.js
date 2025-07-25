@@ -8,9 +8,7 @@ export const calculateTotalReturn = (currentValue, purchaseValue) => {
   }
 
   const profitLoss = currentValue - purchaseValue;
-  const returnPercent = (profitLoss / purchaseValue) * 100;
-
-  return returnPercent;
+  return (profitLoss / purchaseValue) * 100;
 };
 
 export const calculateTodayReturn = (holdings, usdToKrw, totalStockValue) => {
