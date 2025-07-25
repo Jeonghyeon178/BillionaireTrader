@@ -1,4 +1,4 @@
-package com.billionaire.domain.listing.entity;
+package com.billionaire.domain.stock.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

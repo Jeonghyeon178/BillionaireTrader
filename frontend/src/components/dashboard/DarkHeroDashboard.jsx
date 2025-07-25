@@ -32,7 +32,7 @@ const DarkHeroDashboard = ({
 
   const getSchedulerIcon = () => {
     if (isToggling) return '⏳';
-    return schedulerStatus === 'ENABLED' ? '▶️' : '⏸️';
+    return schedulerStatus === 'ENABLED' ? '🟢' : '🔴';
   };
 
   const getSchedulerHoverRing = () => {

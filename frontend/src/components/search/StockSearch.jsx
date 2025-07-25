@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import { APP_CONSTANTS, API_ENDPOINTS } from '../../constants/appConstants';
@@ -17,16 +17,6 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
-  const dummyStocks = useMemo(() => [
-    { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
-    { symbol: 'GOOGL', name: 'Alphabet Inc.', exchange: 'NASDAQ' },
-    { symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ' },
-    { symbol: 'TSLA', name: 'Tesla, Inc.', exchange: 'NASDAQ' },
-    { symbol: 'AMZN', name: 'Amazon.com, Inc.', exchange: 'NASDAQ' },
-    { symbol: 'META', name: 'Meta Platforms, Inc.', exchange: 'NASDAQ' },
-    { symbol: 'NVDA', name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
-    { symbol: 'NFLX', name: 'Netflix, Inc.', exchange: 'NASDAQ' }
-  ], []);
 
   const searchStocks = useCallback(async (query) => {
     if (query.length < APP_CONSTANTS.MIN_SEARCH_LENGTH) {
@@ -46,16 +36,47 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
       setSearchError(null);
     } catch (error) {
       logger.error('주식 검색 실패:', error);
-      setSearchError('주식 검색 API에 연결할 수 없습니다. 오프라인 데이터를 표시합니다.');
-      const filteredDummyResults = dummyStocks.filter(stock => 
-        stock.symbol.toLowerCase().includes(query.toLowerCase()) ||
-        stock.name.toLowerCase().includes(query.toLowerCase())
-      );
-      setSearchResults(filteredDummyResults);
+      // 임시 목업 데이터로 테스트 (백엔드 서버가 실행 중이 아닐 때)
+      if (error.code === 'ERR_NETWORK' || error.response?.status === 404) {
+        const mockResults = [
+          {
+            symbol: 'AAPL',
+            koreaName: '애플',
+            englishName: 'Apple Inc.',
+            exchangeName: 'NASDAQ',
+            name: '애플'
+          },
+          {
+            symbol: 'MSFT',
+            koreaName: '마이크로소프트',
+            englishName: 'Microsoft Corporation',
+            exchangeName: 'NASDAQ',
+            name: '마이크로소프트'
+          },
+          {
+            symbol: 'GOOGL',
+            koreaName: '구글',
+            englishName: 'Alphabet Inc.',
+            exchangeName: 'NASDAQ',
+            name: '구글'
+          }
+        ].filter(stock => 
+          stock.koreaName.includes(query) || 
+          stock.englishName.toLowerCase().includes(query.toLowerCase()) ||
+          stock.symbol.toLowerCase().includes(query.toLowerCase())
+        );
+        
+        setSearchResults(mockResults.slice(0, APP_CONSTANTS.MAX_SEARCH_RESULTS));
+        setSearchError(null);
+        logger.info('백엔드 연결 실패로 인한 목업 데이터 사용');
+      } else {
+        setSearchError('주식 검색 API에 연결할 수 없습니다.');
+        setSearchResults([]);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [dummyStocks, API_BASE_URL]);
+  }, [API_BASE_URL]);
 
   const handleSearchErrorRetry = useCallback(() => {
     const trimmedQuery = searchQuery.trim();
@@ -97,12 +118,35 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, searchStocks]);
 
-  const handleStockSelect = useCallback((stock) => {
-    setSearchQuery(`${stock.symbol} - ${stock.name}`);
+  const handleStockSelect = useCallback(async (stock) => {
+    const displayName = stock.koreaName || stock.englishName;
+    setSearchQuery(`${stock.symbol} - ${displayName}`);
     setIsOpen(false);
     setSelectedIndex(-1);
-    onStockSelect(stock);
-  }, [onStockSelect]);
+    
+    // 선택된 주식의 상세 데이터 요청
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`${API_BASE_URL}/stocks/${stock.symbol}`);
+      logger.info(`StockSearch: 차트 데이터 조회 성공 for ${stock.symbol}:`, response.data?.length, 'data points');
+      const stockData = {
+        ...stock,
+        name: displayName,
+        chartData: response.data
+      };
+      onStockSelect(stockData);
+    } catch (error) {
+      logger.error('주식 상세 데이터 조회 실패:', error);
+      logger.info(`StockSearch: 차트 데이터 없이 기본 정보만 전달 for ${stock.symbol}`);
+      // 차트 데이터 없이 기본 정보만 전달
+      onStockSelect({
+        ...stock,
+        name: displayName
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [onStockSelect, API_BASE_URL]);
 
   const handleKeyDown = useCallback((e) => {
     if (!isOpen) return;
@@ -203,10 +247,15 @@ const StockSearch = ({ onStockSelect, className = '' }) => {
               <div className="flex justify-between items-center">
                 <div>
                   <div className="font-semibold text-white">{stock.symbol}</div>
-                  <div className="text-sm text-slate-300 truncate">{stock.name}</div>
+                  <div className="text-sm text-slate-300 truncate">
+                    {stock.koreaName && stock.englishName ? 
+                      `${stock.koreaName} (${stock.englishName})` : 
+                      (stock.koreaName || stock.englishName)
+                    }
+                  </div>
                 </div>
                 <div className="text-xs text-slate-400 bg-slate-700 px-2 py-1 rounded">
-                  {stock.exchange}
+                  {stock.exchangeName}
                 </div>
               </div>
             </button>

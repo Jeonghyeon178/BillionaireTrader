@@ -1,4 +1,4 @@
-package com.billionaire.domain.listing.init;
+package com.billionaire.domain.stock.init;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,12 +9,12 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.billionaire.domain.listing.dto.internal.ListingInfoDto;
-import com.billionaire.domain.listing.dto.mapper.ListingInfoMapper;
-import com.billionaire.domain.listing.entity.ListingInfo;
-import com.billionaire.domain.listing.exception.ListingFileNotFoundException;
-import com.billionaire.domain.listing.exception.ListingFileParsingException;
-import com.billionaire.domain.listing.repository.ListingInfoRepository;
+import com.billionaire.domain.stock.dto.internal.ListingInfoDto;
+import com.billionaire.domain.stock.dto.mapper.ListingInfoMapper;
+import com.billionaire.domain.stock.entity.ListingInfo;
+import com.billionaire.domain.stock.exception.ListingFileNotFoundException;
+import com.billionaire.domain.stock.exception.ListingFileParsingException;
+import com.billionaire.domain.stock.repository.ListingInfoRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;

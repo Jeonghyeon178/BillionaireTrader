@@ -1,4 +1,4 @@
-package com.billionaire.domain.listing.exception;
+package com.billionaire.domain.stock.exception;
 
 import com.billionaire.global.exception.BusinessException;
 import com.billionaire.global.exception.ErrorCode;

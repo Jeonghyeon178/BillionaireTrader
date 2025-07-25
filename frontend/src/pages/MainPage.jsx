@@ -63,6 +63,7 @@ const MainPage = () => {
     scheduler: null,
     market: null
   });
+  const [lastChartUpdate, setLastChartUpdate] = useState(null);
 
   const marketNames = useMemo(() => APP_CONSTANTS.MARKET_NAMES, []);
 
@@ -283,6 +284,7 @@ const MainPage = () => {
       
       const transformedData = transformChartData(response.data, 'api');
       setChartData(transformedData);
+      setLastChartUpdate({ symbol, time: Date.now() });
     } catch (error) {
       logger.error(`종목 ${symbol} 차트 데이터 가져오기 실패:`, error);
       const dummyData = generateDummyChartData(30, 100);
@@ -318,10 +320,22 @@ const MainPage = () => {
       chartTitle: `${stock.symbol} - ${stock.name}`
     }));
     
-    fetchStockChartData(stock.symbol, true).catch(error => {
-      logger.error('Failed to fetch stock chart data:', error);
-    });
-  }, [fetchStockChartData]);
+    // StockSearch에서 이미 차트 데이터를 가져온 경우 바로 사용
+    if (stock.chartData && stock.chartData.length > 0) {
+      logger.info(`Using chart data from StockSearch for ${stock.symbol}:`, stock.chartData.length, 'data points');
+      const transformedData = transformChartData(stock.chartData, 'api');
+      setChartData(transformedData);
+      setChartLoading(false);
+      clearError('chart');
+      setLastChartUpdate({ symbol: stock.symbol, time: Date.now() });
+    } else {
+      // 차트 데이터가 없는 경우에만 별도로 요청
+      logger.info(`No chart data from StockSearch for ${stock.symbol}, fetching separately`);
+      fetchStockChartData(stock.symbol, true).catch(error => {
+        logger.error('Failed to fetch stock chart data:', error);
+      });
+    }
+  }, [fetchStockChartData, transformChartData, setChartData, setChartLoading, clearError]);
 
   const fetchMarketIndexData = useCallback(async () => {
     const indexData = [];
@@ -418,10 +432,22 @@ const MainPage = () => {
       });
       
       if (uiState.selectedStock) {
-        fetchStockChartData(uiState.selectedStock).catch(error => {
-          logger.error('Auto-refresh stock chart failed:', error);
-        });
+        const now = Date.now();
+        const timeSinceLastUpdate = lastChartUpdate && lastChartUpdate.symbol === uiState.selectedStock.symbol 
+          ? now - lastChartUpdate.time 
+          : Infinity;
+        
+        // 최근 10초 이내에 업데이트된 경우 건너뛰기
+        if (timeSinceLastUpdate < 10000) {
+          logger.info(`Auto-refresh: 주식 차트 데이터 최근 업데이트로 인한 건너뛰기 - ${uiState.selectedStock.symbol}`);
+        } else {
+          logger.info(`Auto-refresh: 주식 차트 데이터 새로고침 - ${uiState.selectedStock.symbol}`);
+          fetchStockChartData(uiState.selectedStock.symbol).catch(error => {
+            logger.error('Auto-refresh stock chart failed:', error);
+          });
+        }
       } else {
+        logger.info(`Auto-refresh: 인덱스 차트 데이터 새로고침 - ${uiState.selectedCard}`);
         fetchIndexChartData(uiState.selectedCard).catch(error => {
           logger.error('Auto-refresh index chart failed:', error);
         });
@@ -435,7 +461,7 @@ const MainPage = () => {
     }, APP_CONSTANTS.REFRESH_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [uiState.isToggling, uiState.selectedCard, uiState.selectedStock, fetchPortfolioData, fetchSchedulerStatus, fetchUsdKrwRate, fetchMarketData, fetchStockChartData, fetchIndexChartData]);
+  }, [uiState.isToggling, uiState.selectedCard, uiState.selectedStock, lastChartUpdate, fetchPortfolioData, fetchSchedulerStatus, fetchUsdKrwRate, fetchMarketData, fetchStockChartData, fetchIndexChartData]);
 
 
 

@@ -1,4 +1,4 @@
-package com.billionaire.domain.listing.dto.internal;
+package com.billionaire.domain.stock.dto.internal;
 
 import jakarta.validation.constraints.NotBlank;
 

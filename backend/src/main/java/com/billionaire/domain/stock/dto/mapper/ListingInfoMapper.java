@@ -1,9 +1,9 @@
-package com.billionaire.domain.listing.dto.mapper;
+package com.billionaire.domain.stock.dto.mapper;
 
 import org.springframework.stereotype.Component;
 
-import com.billionaire.domain.listing.dto.internal.ListingInfoDto;
-import com.billionaire.domain.listing.entity.ListingInfo;
+import com.billionaire.domain.stock.dto.internal.ListingInfoDto;
+import com.billionaire.domain.stock.entity.ListingInfo;
 
 @Component
 public class ListingInfoMapper {

@@ -47,7 +47,7 @@ export const API_ENDPOINTS = {
   ACCOUNT: '/account',
   STOCKS: {
     SEARCH: '/stocks/search',
-    CHART: (symbol) => `/stocks/${symbol}/chart`
+    CHART: (symbol) => `/stocks/${symbol}`
   }
 };
 
