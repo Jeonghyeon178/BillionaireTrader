@@ -202,12 +202,12 @@ public class RebalanceService {
 				double result = -(data.ownAmount - data.stockInfoDto.amount()) + data.stockInfoDto.amount() - amountToLiquidate;
 				if (result < 0) {
 					logTradingAction(data.stockInfoDto.ticker(), "패닉 현금화", -result, analysis.currentPrice, OrderType.SELL);
-					orderService.stockOrder(new OrderDto(
-						data.stockInfoDto.ticker(),
-						(int)(result / analysis.currentPrice),
-						analysis.currentPrice,
-						OrderType.SELL
-					));
+					orderService.stockOrder(OrderDto.builder()
+						.ticker(data.stockInfoDto.ticker())
+						.quantity((int)(result / analysis.currentPrice))
+						.price(analysis.currentPrice)
+						.orderType(OrderType.SELL)
+						.build());
 				}
 			}
 		}
@@ -226,12 +226,12 @@ public class RebalanceService {
 			if (result < 0) {
 				String dropPercentage = formatPercentage(totalDropPercentage * 100);
 				logTradingAction(data.stockInfoDto.ticker(), "하락 매도(" + dropPercentage + ")", -result, analysis.currentPrice, OrderType.SELL);
-				orderService.stockOrder(new OrderDto(
-					data.stockInfoDto.ticker(),
-					(int)(result / analysis.currentPrice),
-					analysis.currentPrice,
-					OrderType.SELL)
-				);
+				orderService.stockOrder(OrderDto.builder()
+					.ticker(data.stockInfoDto.ticker())
+					.quantity((int)(result / analysis.currentPrice))
+					.price(analysis.currentPrice)
+					.orderType(OrderType.SELL)
+					.build());
 			}
 		}
 	}
@@ -261,12 +261,12 @@ public class RebalanceService {
 				double result = -(data.ownAmount - data.stockInfoDto.amount()) + data.stockInfoDto.amount() - amountToLiquidate;
 				if (result > 0) {
 					logTradingAction(data.stockInfoDto.ticker(), "패닉 매수", result, analysis.currentPrice, OrderType.BUY);
-					orderService.stockOrder(new OrderDto(
-						data.stockInfoDto.ticker(),
-						(int)(result / analysis.currentPrice),
-						analysis.currentPrice,
-						OrderType.BUY
-					));
+					orderService.stockOrder(OrderDto.builder()
+						.ticker(data.stockInfoDto.ticker())
+						.quantity((int)(result / analysis.currentPrice))
+						.price(analysis.currentPrice)
+						.orderType(OrderType.BUY)
+						.build());
 				}
 			}
 		}
@@ -285,12 +285,12 @@ public class RebalanceService {
 			if (result > 0) {
 				String dropPercentage = formatPercentage(totalDropPercentage * 100);
 				logTradingAction(data.stockInfoDto.ticker(), "하락 매수(" + dropPercentage + ")", result, analysis.currentPrice, OrderType.BUY);
-				orderService.stockOrder(new OrderDto(
-					data.stockInfoDto.ticker(),
-					(int)(result / analysis.currentPrice),
-					analysis.currentPrice,
-					OrderType.BUY)
-				);
+				orderService.stockOrder(OrderDto.builder()
+					.ticker(data.stockInfoDto.ticker())
+					.quantity((int)(result / analysis.currentPrice))
+					.price(analysis.currentPrice)
+					.orderType(OrderType.BUY)
+					.build());
 			}
 		}
 	}
@@ -328,12 +328,12 @@ public class RebalanceService {
 			String action = "회복 조건 " + (orderType == OrderType.SELL ? "매도" : "매수");
 			logTradingAction(data.stockInfoDto.ticker(), action, tradeAmount, data.analysis.currentPrice, orderType);
 			
-			orderService.stockOrder(new OrderDto(
-				data.stockInfoDto.ticker(),
-				(int)(result / data.analysis.currentPrice),
-				data.analysis.currentPrice,
-				orderType)
-			);
+			orderService.stockOrder(OrderDto.builder()
+				.ticker(data.stockInfoDto.ticker())
+				.quantity((int)(result / data.analysis.currentPrice))
+				.price(data.analysis.currentPrice)
+				.orderType(orderType)
+				.build());
 		}
 	}
 
