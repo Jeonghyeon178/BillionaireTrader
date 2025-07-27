@@ -14,7 +14,6 @@ import { logger, performanceLogger } from '../utils/logger';
 import { transformChartData, generateDummyChartData } from '../utils/chartUtils';
 import {
   calculateTotalReturn,
-  calculateTodayReturn,
   calculateAlertCount,
   parseUSDValues,
   convertToKRW,
@@ -31,7 +30,6 @@ import {
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 const INITIAL_PORTFOLIO_DATA = {
   totalReturn: 0,
-  todayReturn: 0,
   portfolioValue: 0,
   availableCash: 0,
   alertCount: 0,
@@ -163,13 +161,12 @@ const MainPage = () => {
       
       const usdValues = parseUSDValues(stockBalanceData, cashBalanceData);
       const krwValues = convertToKRW(usdValues, usdKrwRate);
-      const totalReturn = calculateTotalReturn(krwValues.totalStockValue, krwValues.totalPurchaseValue);
-      const todayReturn = calculateTodayReturn(holdings, usdKrwRate, krwValues.totalStockValue);
-      const alertCount = calculateAlertCount(totalReturn, todayReturn);
+      const totalInvestedAmount = krwValues.totalPurchaseValue + krwValues.cashValue;
+      const totalReturn = calculateTotalReturn(krwValues.totalPortfolioValue, totalInvestedAmount);
+      const alertCount = calculateAlertCount(totalReturn);
       
       setPortfolioData({
         totalReturn,
-        todayReturn,
         portfolioValue: krwValues.totalPortfolioValue,
         availableCash: krwValues.cashValue,
         alertCount,
@@ -482,7 +479,6 @@ const MainPage = () => {
           <DarkHeroDashboard 
             schedulerStatus={schedulerStatus}
             totalReturn={portfolioData.totalReturn}
-            todayReturn={portfolioData.todayReturn}
             portfolioValue={portfolioData.portfolioValue}
             availableCash={portfolioData.availableCash}
             alertCount={portfolioData.alertCount}

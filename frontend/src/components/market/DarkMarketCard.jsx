@@ -1,5 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import CountingNumber from '../common/CountingNumber';
 
 const DarkMarketCard = ({ ticker, name, price, changePercent, onClick, isActive = false }) => {
   const isPositive = changePercent >= 0;
@@ -31,9 +32,21 @@ const DarkMarketCard = ({ ticker, name, price, changePercent, onClick, isActive 
         </div>
         
         <div className="text-right">
-          <p className="font-mono font-bold text-white">{price.toFixed(2)}</p>
+          <p className="font-mono font-bold text-white">
+            <CountingNumber
+              value={Number(price) || 0}
+              formatFunction={(val) => val.toFixed(2)}
+              highlightColor="bg-white/10"
+              duration={800}
+            />
+          </p>
           <p className={`font-mono text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-            {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
+            <CountingNumber
+              value={Number(changePercent) || 0}
+              formatFunction={(val) => `${isPositive ? '+' : ''}${val.toFixed(2)}%`}
+              highlightColor={isPositive ? "bg-green-500/15" : "bg-red-500/15"}
+              duration={700}
+            />
           </p>
         </div>
       </div>

@@ -23,6 +23,7 @@ public class SecurityConfig {
 		http
 			.authorizeHttpRequests(authorizeRequests -> authorizeRequests
 				.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+				.requestMatchers("/favicon.ico", "/favicon.png").permitAll()
 				.anyRequest().permitAll())
 			.csrf(AbstractHttpConfigurer::disable)
 			.httpBasic(Customizer.withDefaults())

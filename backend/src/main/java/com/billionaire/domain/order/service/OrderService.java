@@ -23,7 +23,7 @@ public class OrderService {
 	private String accountProductCode;
 	private final ApiUtils apiUtils;
 	private final TokenUtils tokenUtils;
-	private static String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/order";
+	private static final String URL = "https://openapi.koreainvestment.com:9443/uapi/overseas-stock/v1/trading/order";
 
 	public void stockOrder(OrderDto orderDto) {
 		// 매수, 매도 코드

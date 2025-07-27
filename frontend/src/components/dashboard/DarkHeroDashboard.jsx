@@ -3,11 +3,11 @@ import PropTypes from 'prop-types';
 import DashboardHeader from './DashboardHeader';
 import BaseCard from '../common/BaseCard';
 import MetricDisplay from '../common/MetricDisplay';
+import CountingNumber from '../common/CountingNumber';
 
 const DarkHeroDashboard = ({ 
   schedulerStatus,
   totalReturn = 0,
-  todayReturn = 0,
   portfolioValue = 0,
   availableCash = 0,
   alertCount = 0,
@@ -85,9 +85,16 @@ const DarkHeroDashboard = ({
         <BaseCard variant="metric">
           <MetricDisplay
             title="총 수익률"
-            value={`${totalReturn.toFixed(2)}%`}
+            value={
+              <CountingNumber
+                value={Number(totalReturn) || 0}
+                formatFunction={(val) => `${val.toFixed(2)}%`}
+                highlightColor={totalReturn >= 0 ? "bg-green-500/20" : "bg-red-500/20"}
+                duration={800}
+              />
+            }
             valueColor={totalReturn >= 0 ? "text-green-400" : "text-red-400"}
-            subtitle={`오늘: ${todayReturn.toFixed(2)}%`}
+            subtitle="총 원금 대비 수익률"
             icon="📈"
             trend={totalReturn >= 0 ? 'up' : 'down'}
           />
@@ -96,9 +103,25 @@ const DarkHeroDashboard = ({
         <BaseCard variant="metric">
           <MetricDisplay
             title="포트폴리오 가치"
-            value={`${Math.floor(portfolioValue).toLocaleString()}원`}
+            value={
+              <CountingNumber
+                value={Number(portfolioValue) || 0}
+                formatFunction={(val) => `${Math.floor(val).toLocaleString()}원`}
+                highlightColor="bg-blue-500/20"
+                duration={1000}
+              />
+            }
             valueColor="text-blue-400"
-            subtitle={`현금: ${Math.floor(availableCash).toLocaleString()}원`}
+            subtitle={
+              <>
+                현금: <CountingNumber
+                  value={Number(availableCash) || 0}
+                  formatFunction={(val) => `${Math.floor(val).toLocaleString()}원`}
+                  highlightColor="bg-blue-500/10"
+                  duration={800}
+                />
+              </>
+            }
             icon="💼"
           />
         </BaseCard>
@@ -106,7 +129,14 @@ const DarkHeroDashboard = ({
         <BaseCard variant="metric">
           <MetricDisplay
             title="실시간 알림"
-            value={`${alertCount}개`}
+            value={
+              <CountingNumber
+                value={Number(alertCount) || 0}
+                formatFunction={(val) => `${Math.floor(val)}개`}
+                highlightColor="bg-yellow-500/20"
+                duration={500}
+              />
+            }
             valueColor="text-yellow-400"
             subtitle={alertCount > 0 ? "새로운 알림" : "모든 알림 확인됨"}
             icon="🔔"
@@ -121,7 +151,6 @@ const DarkHeroDashboard = ({
 DarkHeroDashboard.propTypes = {
   schedulerStatus: PropTypes.string,
   totalReturn: PropTypes.number,
-  todayReturn: PropTypes.number,
   portfolioValue: PropTypes.number,
   availableCash: PropTypes.number,
   alertCount: PropTypes.number,

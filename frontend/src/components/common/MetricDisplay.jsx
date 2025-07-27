@@ -39,8 +39,8 @@ const MetricDisplay = ({
 
 MetricDisplay.propTypes = {
   title: PropTypes.string.isRequired,
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  subtitle: PropTypes.string,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.node]).isRequired,
+  subtitle: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
   valueColor: PropTypes.string,
   titleColor: PropTypes.string,
   subtitleColor: PropTypes.string,

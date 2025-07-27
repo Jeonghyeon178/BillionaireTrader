@@ -1,5 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import CountingNumber from '../common/CountingNumber';
 import ErrorState from '../common/ErrorState';
 
 
@@ -54,31 +55,61 @@ const PortfolioOverview = ({ portfolioData, loading = false, error = null }) => 
           <div className="bg-slate-700 rounded-lg p-4">
             <p className="text-slate-400 text-xs mb-1">총 자산</p>
             <p className="text-white text-lg font-bold">
-              {formatCurrency(summary?.totalValue || 0)}
+              <CountingNumber
+                value={Number(summary?.totalValue) || 0}
+                formatFunction={formatCurrency}
+                highlightColor="bg-white/10"
+                duration={1000}
+              />
             </p>
           </div>
           <div className="bg-slate-700 rounded-lg p-4">
             <p className="text-slate-400 text-xs mb-1">주식 평가액</p>
             <p className="text-blue-400 text-lg font-bold">
-              {formatCurrency(summary?.stockValue || 0)}
+              <CountingNumber
+                value={Number(summary?.stockValue) || 0}
+                formatFunction={formatCurrency}
+                highlightColor="bg-blue-500/15"
+                duration={900}
+              />
             </p>
             <p className="text-slate-500 text-xs">
-              {(summary?.stockPercentage || 0).toFixed(1)}%
+              <CountingNumber
+                value={Number(summary?.stockPercentage) || 0}
+                formatFunction={(val) => `${val.toFixed(1)}%`}
+                highlightColor="bg-blue-500/10"
+                duration={600}
+              />
             </p>
           </div>
           <div className="bg-slate-700 rounded-lg p-4">
             <p className="text-slate-400 text-xs mb-1">현금 잔고</p>
             <p className="text-green-400 text-lg font-bold">
-              {formatCurrency(summary?.cashValue || 0)}
+              <CountingNumber
+                value={Number(summary?.cashValue) || 0}
+                formatFunction={formatCurrency}
+                highlightColor="bg-green-500/15"
+                duration={900}
+              />
             </p>
             <p className="text-slate-500 text-xs">
-              {(summary?.cashPercentage || 0).toFixed(1)}%
+              <CountingNumber
+                value={Number(summary?.cashPercentage) || 0}
+                formatFunction={(val) => `${val.toFixed(1)}%`}
+                highlightColor="bg-green-500/10"
+                duration={600}
+              />
             </p>
           </div>
           <div className="bg-slate-700 rounded-lg p-4">
             <p className="text-slate-400 text-xs mb-1">보유 종목</p>
             <p className="text-purple-400 text-lg font-bold">
-              {holdings.length}개
+              <CountingNumber
+                value={Number(holdings.length) || 0}
+                formatFunction={(val) => `${Math.floor(val)}개`}
+                highlightColor="bg-purple-500/15"
+                duration={500}
+              />
             </p>
           </div>
         </div>
@@ -121,6 +152,11 @@ const PortfolioOverview = ({ portfolioData, loading = false, error = null }) => 
               const stockCode = holding?.ovrs_pdno || 'N/A';
               const stockName = holding?.ovrs_item_name || 'Unknown Stock';
               const percentage = summary?.totalValue > 0 ? (currentValue / summary.totalValue) * 100 : 0;
+              
+              // 구매 원금과 현재 평가금액으로 수익률 계산
+              const purchaseAmount = parseFloat(holding?.frcr_pchs_amt1 || '0');
+              const currentAmount = parseFloat(holding?.ovrs_stck_evlu_amt || '0');
+              const returnRate = purchaseAmount > 0 ? ((currentAmount - purchaseAmount) / purchaseAmount) * 100 : 0;
 
               return (
                 <div key={`${stockCode}-${index}`} className="bg-slate-700 rounded-lg p-4">
@@ -149,9 +185,19 @@ const PortfolioOverview = ({ portfolioData, loading = false, error = null }) => 
                       <p className="text-slate-400 text-sm">
                         {quantity}주 • {formatCurrency(currentPrice)}/주
                       </p>
-                      <p className="text-slate-500 text-xs">
-                        {percentage.toFixed(1)}%
-                      </p>
+                      <div className="flex items-center justify-end gap-2 text-xs">
+                        <span className="text-slate-500">
+                          {percentage.toFixed(1)}%
+                        </span>
+                        <span className={`font-semibold ${returnRate >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          <CountingNumber
+                            value={Number(returnRate) || 0}
+                            formatFunction={(val) => `${val >= 0 ? '+' : ''}${val.toFixed(2)}%`}
+                            highlightColor={returnRate >= 0 ? "bg-green-500/20" : "bg-red-500/20"}
+                            duration={600}
+                          />
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

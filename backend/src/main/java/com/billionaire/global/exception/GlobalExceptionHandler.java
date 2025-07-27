@@ -7,12 +7,25 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException e) {
+		// favicon.ico와 같은 정적 리소스 요청은 경고 수준으로 로깅
+		if (e.getResourcePath().contains("favicon")) {
+			log.debug("Favicon resource not found: {}", e.getResourcePath());
+		} else {
+			log.warn("Static resource not found: {}", e.getResourcePath());
+		}
+		ErrorResponse errorResponse = ErrorResponse.of(HttpStatus.NOT_FOUND, "Resource not found");
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+	}
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleException(Exception e) {
